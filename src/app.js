@@ -4,6 +4,7 @@ const { env } = require("./config/env");
 const { resolveTenant } = require("./services/tenants");
 const authRoutes = require("./routes/auth");
 const scanRoutes = require("./routes/scan");
+const pointsRoutes = require("./routes/points");
 
 const app = express();
 
@@ -50,7 +51,7 @@ app.get("/health", async (req, res) => {
   });
 });
 
-app.use("/t/:slug", resolveTenant, authRoutes, scanRoutes);
+app.use("/t/:slug", resolveTenant, authRoutes, scanRoutes, pointsRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);

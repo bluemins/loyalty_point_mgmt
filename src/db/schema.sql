@@ -165,3 +165,43 @@ CREATE INDEX IF NOT EXISTS idx_ledger_tenant_user_created ON ledger (tenant_id, 
 CREATE INDEX IF NOT EXISTS idx_ledger_tenant_user_expires ON ledger (tenant_id, user_id, expires_at);
 CREATE INDEX IF NOT EXISTS idx_rewards_tenant_active ON rewards (tenant_id, active, points_cost);
 CREATE INDEX IF NOT EXISTS idx_redemptions_tenant_status ON redemptions (tenant_id, status, created_at);
+
+-- Each debit row (redeem, expire, negative adjust) draws from exactly one
+-- credit. A debit spanning several credits is written as several rows. This is
+-- what makes FIFO spending and per-credit expiry exact:
+--   remaining(credit) = credit.amount + SUM(debits pointing at it)
+ALTER TABLE ledger ADD COLUMN IF NOT EXISTS consumes_ledger_id UUID REFERENCES ledger(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_ledger_consumes ON ledger (consumes_ledger_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_credit_expiry ON ledger (tenant_id, expires_at) WHERE amount > 0;
+-- A credit can be expired only once.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ledger_expire_per_credit ON ledger (consumes_ledger_id) WHERE type = 'expire';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ledger_credit_debit_shape') THEN
+    ALTER TABLE ledger ADD CONSTRAINT ledger_credit_debit_shape CHECK (
+      (amount > 0 AND expires_at IS NOT NULL AND consumes_ledger_id IS NULL)
+      OR (amount < 0 AND consumes_ledger_id IS NOT NULL)
+    );
+  END IF;
+END $$;
+
+-- The ledger is append-only. Direct UPDATE or DELETE is rejected. A delete
+-- cascading from removing a tenant or user runs inside the foreign-key
+-- trigger (depth > 1), so it is still allowed.
+CREATE OR REPLACE FUNCTION ledger_append_only() RETURNS trigger AS $$
+BEGIN
+  IF pg_trigger_depth() = 1 THEN
+    RAISE EXCEPTION 'ledger is append-only: % is not allowed', TG_OP;
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS ledger_append_only ON ledger;
+CREATE TRIGGER ledger_append_only
+  BEFORE UPDATE OR DELETE ON ledger
+  FOR EACH ROW EXECUTE FUNCTION ledger_append_only();

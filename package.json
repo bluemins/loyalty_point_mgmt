@@ -9,6 +9,7 @@
     "start": "node src/server.js",
     "migrate": "node src/db/migrate.js",
     "seed": "node src/db/seed.js",
+    "expire": "node src/jobs/expirePoints.js",
     "test": "node --test"
   },
   "dependencies": {

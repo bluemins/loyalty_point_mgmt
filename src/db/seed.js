@@ -40,6 +40,7 @@ async function seed({ slug = env.DEMO_TENANT_SLUG, name = env.DEMO_TENANT_NAME }
     ["daily_scan_cap", 5],
     ["points_expiry_days", 60],
     ["pending_points_ttl_days", 30],
+    ["expiring_soon_days", 7],
     ["voucher_validity_days", 30],
     ["user_categories", ["Carpenter", "Contractor", "End User"]],
     ["msg91_sender_id", env.MSG91_SENDER_ID],

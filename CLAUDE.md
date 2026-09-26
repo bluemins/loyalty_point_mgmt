@@ -60,6 +60,11 @@ Decided:
 - Each credit has `expires_at` = created + `points_expiry_days` (default 60).
 - Redemptions consume the oldest unexpired credits first (FIFO).
 - A nightly job writes `expire` rows for lapsed points.
+  - `npm run expire` (`src/jobs/expirePoints.js`), scheduled for 00:30 IST in production. Safe to re-run.
+  - Lapsed credits leave the balance at their `expires_at`, even before the job runs; the job only records it in the ledger.
+- Every debit row (redeem, expire, negative adjust) sets `consumes_ledger_id` to the one credit it draws from; a debit spanning several credits is several rows sharing `reference_type`/`reference_id`. Remaining of a credit = its amount + the debits pointing at it.
+- Enforced in the DB: a trigger rejects direct UPDATE/DELETE on `ledger` (cascades from deleting a tenant or user are allowed); a check requires credits to have `expires_at` and debits to have `consumes_ledger_id`; a credit can be expired only once.
+- `GET /t/:slug/points` returns balance, points expiring within `expiring_soon_days` (default 7) grouped by IST date, and the latest 50 activity entries (split debits grouped back into one event).
 - Redemption must be atomic: one DB transaction, lock the user's rows, and use an idempotency key so a double tap cannot spend twice.
 
 ## Rewards

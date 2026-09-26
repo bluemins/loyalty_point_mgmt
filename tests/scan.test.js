@@ -4,14 +4,15 @@ const crypto = require('crypto');
 
 const app = require('../src/app');
 const { pool, redis } = require('../src/db');
-const { MOCK_OTP } = require('../src/services/msg91');
 const scans = require('../src/services/scans');
 const users = require('../src/services/users');
 const {
   createTestTenant,
   setSettings: setTenantSettings,
   clearRedisFor,
-  destroyTestTenant
+  destroyTestTenant,
+  createBrowser,
+  randomPhone
 } = require('./helpers');
 
 const CATEGORIES = ['Carpenter', 'Contractor', 'End User'];
@@ -32,39 +33,8 @@ function setSettings(tenant, settings) {
   return setTenantSettings(pool, tenant, settings);
 }
 
-// A minimal browser: keeps cookies between requests to one tenant.
 function browser(tenant) {
-  const jar = {};
-  return {
-    jar,
-    async post(path, body = {}) {
-      const res = await fetch(`${baseUrl}/t/${tenant.slug}${path}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ')
-        },
-        body: JSON.stringify(body)
-      });
-      for (const cookie of res.headers.getSetCookie()) {
-        const [pair] = cookie.split(';');
-        const [name, value] = pair.split('=');
-        jar[name] = value;
-      }
-      return { status: res.status, body: await res.json() };
-    },
-    scan() {
-      return this.post('/scan');
-    },
-    async login(phone) {
-      await this.post('/otp/send', { phone });
-      return this.post('/otp/verify', { phone, otp: MOCK_OTP });
-    }
-  };
-}
-
-function randomPhone() {
-  return `9${String(crypto.randomInt(0, 1e9)).padStart(9, '0')}`;
+  return createBrowser(baseUrl, tenant);
 }
 
 function randomDevice() {

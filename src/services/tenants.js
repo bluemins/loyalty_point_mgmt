@@ -7,6 +7,7 @@ const SETTING_DEFAULTS = {
   daily_scan_cap: 5,
   points_expiry_days: 60,
   pending_points_ttl_days: 30,
+  expiring_soon_days: 7,
   otp_send_limit_per_phone: 3,
   otp_send_window_phone_minutes: 15,
   otp_send_limit_per_ip: 10,

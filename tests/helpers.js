@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
+const { MOCK_OTP } = require('../src/services/msg91');
 
 // Every table that carries tenant_id. Teardown checks all of them.
 const TENANT_TABLES = [
@@ -61,7 +62,44 @@ async function destroyTestTenant(pool, redis, tenant) {
   assert.deepEqual(await redisKeysFor(redis, tenant), [], `Redis keys left for ${tenant.slug}`);
 }
 
+// A minimal browser: keeps cookies between requests to one tenant.
+function createBrowser(baseUrl, tenant) {
+  const jar = {};
+  async function request(method, path, body) {
+    const res = await fetch(`${baseUrl}/t/${tenant.slug}${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ')
+      },
+      body: body === undefined ? undefined : JSON.stringify(body)
+    });
+    for (const cookie of res.headers.getSetCookie()) {
+      const [pair] = cookie.split(';');
+      const [name, value] = pair.split('=');
+      jar[name] = value;
+    }
+    return { status: res.status, body: await res.json() };
+  }
+  return {
+    jar,
+    get: (path) => request('GET', path),
+    post: (path, body = {}) => request('POST', path, body),
+    scan: () => request('POST', '/scan', {}),
+    async login(phone) {
+      await request('POST', '/otp/send', { phone });
+      return request('POST', '/otp/verify', { phone, otp: MOCK_OTP });
+    }
+  };
+}
+
+function randomPhone() {
+  return `9${String(crypto.randomInt(0, 1e9)).padStart(9, '0')}`;
+}
+
 module.exports = {
+  createBrowser,
+  randomPhone,
   TENANT_TABLES,
   createTestTenant,
   setSettings,

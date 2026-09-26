@@ -70,8 +70,17 @@ before(async () => {
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
 
+// Tests must never reach MSG91, even when .env has a real auth key: force mock
+// mode, and make any real HTTP attempt fail loudly.
+const MOCK_MSG91 = {
+  authKey: '',
+  fetchImpl: async () => {
+    throw new Error('Tests must not call MSG91');
+  }
+};
+
 beforeEach(async () => {
-  app.locals.msg91 = undefined;
+  app.locals.msg91 = MOCK_MSG91;
   await clearRedisFor(tenantA);
   await clearRedisFor(tenantB);
 });

@@ -22,6 +22,9 @@ A white-label loyalty system sold to multiple clients. End users (carpenters, co
 - All data access goes through one data-access layer that enforces `tenant_id` (or use Postgres row-level security).
 - A user is unique on (`tenant_id`, `phone`). The same phone in two tenants means two separate accounts.
 - Tenant is resolved from the QR URL slug, for example `/t/:slug/scan`. Custom domains come later.
+- Tenant-owned queries go through `tenantQuery` in `src/db/tenantDb.js` (tenant id always bound as `$1`).
+- Every Redis key contains the tenant id (e.g. `sess:<tenant_id>:<id>`, `scan:cd:<tenant_id>:...`), so all of a tenant's keys match `*:<tenant_id>:*`.
+- User cookies (`sid` session, `dt` device) are scoped to path `/t/<slug>`, so each tenant has its own.
 - Per-tenant config: brand name, logo, colors, tagline, user categories, points rules, reward catalog, MSG91 sender and template IDs.
 - Roles: `super_admin` (me) and `tenant_admin` (sees only their tenant).
 - Design so a specific client can later get a dedicated instance.
@@ -34,6 +37,11 @@ A white-label loyalty system sold to multiple clients. End users (carpenters, co
 5. Existing phone: log in, merge pending points, show total balance, expiring points, activity, and redeem option.
 6. Return visits on the same device use a signed session cookie, so no OTP is needed each time.
 
+Decided:
+- `GET /t/:slug/scan` only serves the landing page; the page's JS calls `POST /t/:slug/scan` to record the scan. Link previews, scanner apps and prefetch must never count as scans.
+- After OTP verify, a new phone gets `needs_profile: true`; `POST /t/:slug/profile` creates the user and merges pending points. An existing phone merges at verify.
+- Unclaimed pending points expire after `pending_points_ttl_days` (default 30).
+
 ## Scan rules (all configurable per tenant in `settings`)
 - The QR is shared, not unique, so abuse control is on the server.
 - `points_per_scan` = 10
@@ -41,10 +49,14 @@ A white-label loyalty system sold to multiple clients. End users (carpenters, co
 - `daily_scan_cap` = 5 credited scans per verified phone per day (day resets at midnight IST). Same cap per device token for anonymous scans.
 - Over the cap or inside the cooldown: log the scan, credit nothing, show a friendly message.
 - Setting changes apply to future scans only.
+- Cooldown: only a scan that earns points (credited or pending) starts it; refused scans do not restart the timer. `0` disables it.
+- A logged-in scan also honours the device's cooldown, so "scan anonymously, log in, scan again" cannot earn twice in one window.
+- Merging pending points applies the daily cap per IST scan day, counting what the phone already earned that day, so scanning on several devices cannot bypass the cap. Excess scans are logged as `capped`. Merge is one transaction with row locks, so scans are claimed once.
+- Every scan is logged in `scan_events` with outcome `credited`, `pending`, `cooldown` or `capped`.
 
 ## Points ledger
 - Append-only `ledger` table. Row types: `scan`, `redeem`, `expire`, `adjust`, `refund`.
-- Balance = sum of unexpired credits minus debits. Never store a mutable balance as the source of truth.
+- Balance = sum of unexpired credits minus debits. Never store a mutable balance as the source of truth. (`ledger.balance_after` was dropped for this reason; do not re-add a running balance.)
 - Each credit has `expires_at` = created + `points_expiry_days` (default 60).
 - Redemptions consume the oldest unexpired credits first (FIFO).
 - A nightly job writes `expire` rows for lapsed points.
@@ -59,8 +71,14 @@ A white-label loyalty system sold to multiple clients. End users (carpenters, co
 ## OTP and security
 - MSG91 auth key and template IDs come from env vars (per tenant where needed). Never expose them to the browser.
 - Rate-limit OTP sends per phone and per IP. Limit verify attempts to 5 per OTP. OTP expires in 5 minutes.
+  - Defaults, per tenant in `settings`: 3 sends per phone per 15 minutes (`otp_send_limit_per_phone`, `otp_send_window_phone_minutes`), 10 per IP per hour (`otp_send_limit_per_ip`, `otp_send_window_ip_minutes`).
+- MSG91 generates and verifies the OTP itself; we never see it. Expiry and the attempt limit are still enforced on our side (Redis) so mock and real mode behave the same. Mock mode is on whenever `MSG91_AUTH_KEY` is empty.
+- Tenant `settings` values `msg91_sender_id` / `msg91_template_id` override the env defaults. `npm run seed` copies the env values into the demo tenant, so re-seed after changing them in `.env`.
+- Indian SMS requires DLT: the sender ID needs the Entity ID and the template needs the DLT Template ID in the MSG91 dashboard. Not done yet, so real delivery is unverified.
 - Validate and normalise phone numbers to E.164 (+91 default).
 - Signed, httpOnly session cookies. Separate login for admins.
+- User sessions are stored in Redis (`SESSION_TTL_DAYS`, default 30); the cookie carries only a random signed id, so logout and bans take effect immediately.
+- Behind Railway's proxy, `trust proxy` is on in production only, so local clients cannot spoof their IP for rate limits.
 - Log admin actions (adjustments, cancellations).
 
 ## UI direction
@@ -71,7 +89,15 @@ A white-label loyalty system sold to multiple clients. End users (carpenters, co
 
 ## Testing
 - Automated tests for: daily cap, cooldown, FIFO redemption, expiry, double-spend prevention, tenant isolation (tenant A can never read tenant B).
-- Mock OTP mode for tests.
+- Mock OTP mode for tests. Tests force mock mode via `app.locals.msg91` even if `.env` has a real key; they must never send SMS.
+- Tests create their own tenants (`tests/helpers.js`) and never touch the demo tenant. Teardown asserts no rows and no Redis keys are left behind.
+- Assert exact counts, not `>= N`. Scripts meant to be re-run (seed, migrate) get a run-twice test.
+- After any run, check the actual Postgres and Redis state, not only the API responses.
+
+## Local dev
+- Run in WSL with the Linux Node from nvm (`. ~/.nvm/nvm.sh`), not the Windows Node on `/mnt/c`.
+- `npm run migrate`, `npm run seed` (both safe to re-run), `npm run dev`, `npm test`.
+- Restart `npm run dev` after editing `.env`; `--watch` does not reload it.
 
 ## Out of scope for now
 Native apps, payment gateway, custom domains, product delivery logistics.

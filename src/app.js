@@ -5,6 +5,7 @@ const { resolveTenant } = require("./services/tenants");
 const authRoutes = require("./routes/auth");
 const scanRoutes = require("./routes/scan");
 const pointsRoutes = require("./routes/points");
+const rewardRoutes = require("./routes/rewards");
 
 const app = express();
 
@@ -51,7 +52,7 @@ app.get("/health", async (req, res) => {
   });
 });
 
-app.use("/t/:slug", resolveTenant, authRoutes, scanRoutes, pointsRoutes);
+app.use("/t/:slug", resolveTenant, authRoutes, scanRoutes, pointsRoutes, rewardRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);

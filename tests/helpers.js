@@ -65,12 +65,13 @@ async function destroyTestTenant(pool, redis, tenant) {
 // A minimal browser: keeps cookies between requests to one tenant.
 function createBrowser(baseUrl, tenant) {
   const jar = {};
-  async function request(method, path, body) {
+  async function request(method, path, body, headers = {}) {
     const res = await fetch(`${baseUrl}/t/${tenant.slug}${path}`, {
       method,
       headers: {
         'Content-Type': 'application/json',
-        Cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ')
+        Cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; '),
+        ...headers
       },
       body: body === undefined ? undefined : JSON.stringify(body)
     });
@@ -84,7 +85,7 @@ function createBrowser(baseUrl, tenant) {
   return {
     jar,
     get: (path) => request('GET', path),
-    post: (path, body = {}) => request('POST', path, body),
+    post: (path, body = {}, headers = {}) => request('POST', path, body, headers),
     scan: () => request('POST', '/scan', {}),
     async login(phone) {
       await request('POST', '/otp/send', { phone });

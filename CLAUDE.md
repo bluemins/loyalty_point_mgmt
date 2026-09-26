@@ -73,6 +73,15 @@ Decided:
 - `redemptions` table with status: `issued`, `fulfilled`, `cancelled`. Cancelled redemptions write a `refund` ledger row.
 - Voucher code is generated on redeem, with validity `voucher_validity_days` (default 30).
 
+Decided:
+- `GET /t/:slug/rewards` is public (active rewards, `in_stock` flag, no stock counts). `POST /t/:slug/rewards/:id/redeem` needs a logged-in user with a profile and an `Idempotency-Key` header. `GET /t/:slug/redemptions` lists the user's own vouchers.
+- Redemption transaction: lock the user row (the same lock merge and the expiry job take), check the idempotency key, lock the reward row, spend credits oldest created first, write one `redeem` row per credit used, decrement stock.
+- Same key + same user + same reward returns the original result (`replayed: true`). Same key from another user or for another reward is a 409.
+- Voucher codes: `XXXX-XXXX-XX` from an alphabet without 0/O/1/I, unique per tenant.
+- Only `issued` can be fulfilled or cancelled; `fulfilled` is final (reverse with a manual `adjust` instead). Cancel writes one `refund` credit with a fresh `points_expiry_days` expiry (cancel is admin-only, so this cannot be used to extend points) and restores stock.
+- Fulfil/cancel are service functions; their admin routes and action logging come with the admin panel.
+- Not decided yet: what happens to unused vouchers after `voucher_expires_at` (they stay `issued`).
+
 ## OTP and security
 - MSG91 auth key and template IDs come from env vars (per tenant where needed). Never expose them to the browser.
 - Rate-limit OTP sends per phone and per IP. Limit verify attempts to 5 per OTP. OTP expires in 5 minutes.

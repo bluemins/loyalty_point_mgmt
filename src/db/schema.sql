@@ -205,3 +205,7 @@ DROP TRIGGER IF EXISTS ledger_append_only ON ledger;
 CREATE TRIGGER ledger_append_only
   BEFORE UPDATE OR DELETE ON ledger
   FOR EACH ROW EXECUTE FUNCTION ledger_append_only();
+
+-- Voucher codes are unique per tenant; users list their own redemptions.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_redemptions_voucher_code ON redemptions (tenant_id, voucher_code);
+CREATE INDEX IF NOT EXISTS idx_redemptions_tenant_user_created ON redemptions (tenant_id, user_id, created_at);

@@ -63,6 +63,13 @@ async function loadUserSession(req, res, next) {
   }
 }
 
+// For routes that need a logged-in user with a profile. Use after loadUserSession.
+function requireUser(req, res, next) {
+  if (!req.session) return res.status(401).json({ error: "not_authenticated" });
+  if (!req.session.user_id) return res.status(409).json({ error: "needs_profile" });
+  next();
+}
+
 async function destroyUserSession(req, res) {
   if (req.sessionId) {
     await req.app.locals.redis.del(sessionKey(req.tenant.id, req.sessionId));
@@ -76,5 +83,6 @@ module.exports = {
   createUserSession,
   setSessionUser,
   loadUserSession,
+  requireUser,
   destroyUserSession
 };

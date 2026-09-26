@@ -7,7 +7,7 @@ const ACTIVITY_LIMIT = 50;
 // One row per credit with what is left of it after the debits drawn from it.
 // Callers append their own filters and must end with GROUP BY c.id.
 const CREDITS_WITH_REMAINING = `
-  SELECT c.id, c.user_id, c.expires_at,
+  SELECT c.id, c.user_id, c.expires_at, c.created_at,
          (c.amount + COALESCE(SUM(d.amount), 0))::int AS remaining
   FROM ledger c
   LEFT JOIN ledger d ON d.tenant_id = c.tenant_id AND d.consumes_ledger_id = c.id
@@ -26,6 +26,23 @@ async function getBalance(db, tenantId, userId, now) {
     [userId, now]
   );
   return result.rows[0].balance;
+}
+
+// Unexpired credits with points left, oldest first: the order redemptions
+// spend them in (FIFO). Call inside a transaction holding the user row lock.
+async function getSpendableCredits(db, tenantId, userId, now) {
+  const result = await tenantQuery(
+    db,
+    tenantId,
+    `SELECT id, remaining
+     FROM (${CREDITS_WITH_REMAINING}
+             AND c.user_id = $2 AND c.expires_at > $3
+           GROUP BY c.id) credits
+     WHERE remaining > 0
+     ORDER BY created_at, id`,
+    [userId, now]
+  );
+  return result.rows;
 }
 
 async function getExpiringSoon(db, tenantId, userId, now, withinDays) {
@@ -142,4 +159,10 @@ async function expireLapsedCredits(db, tenantId, now = new Date()) {
   return summary;
 }
 
-module.exports = { ACTIVITY_LIMIT, getBalance, getPointsSummary, expireLapsedCredits };
+module.exports = {
+  ACTIVITY_LIMIT,
+  getBalance,
+  getSpendableCredits,
+  getPointsSummary,
+  expireLapsedCredits
+};

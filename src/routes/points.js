@@ -1,13 +1,10 @@
 const express = require("express");
 const { getPointsSummary } = require("../services/ledger");
-const { loadUserSession } = require("../services/session");
+const { loadUserSession, requireUser } = require("../services/session");
 
 const router = express.Router({ mergeParams: true });
 
-router.get("/points", loadUserSession, async (req, res, next) => {
-  if (!req.session) return res.status(401).json({ error: "not_authenticated" });
-  if (!req.session.user_id) return res.status(409).json({ error: "needs_profile" });
-
+router.get("/points", loadUserSession, requireUser, async (req, res, next) => {
   try {
     res.json(await getPointsSummary(req.app.locals.db, req.tenant.id, req.session.user_id));
   } catch (error) {

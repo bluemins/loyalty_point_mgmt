@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Loyalty Admin</title>
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body>
+  <section class="login" id="login" hidden>
+    <form class="login-card" id="login-form" novalidate>
+      <h1>Loyalty Admin</h1>
+      <label>Email <input id="login-email" type="email" autocomplete="username" required></label>
+      <label>Password <input id="login-password" type="password" autocomplete="current-password" required></label>
+      <p class="error" id="login-error" role="alert"></p>
+      <button class="btn primary" type="submit">Sign in</button>
+    </form>
+  </section>
+
+  <div class="shell" id="shell" hidden>
+    <header class="topbar">
+      <strong class="product">Loyalty Admin</strong>
+      <select id="tenant-select" aria-label="Tenant"></select>
+      <span class="spacer"></span>
+      <span class="who" id="who"></span>
+      <button class="btn ghost small" id="logout" type="button">Log out</button>
+    </header>
+    <nav class="nav" id="nav">
+      <a data-view="users">Users</a>
+      <a data-view="redemptions">Redemptions</a>
+      <a data-view="ledger">Ledger</a>
+      <a data-view="rewards">Rewards</a>
+      <a data-view="settings">Settings</a>
+    </nav>
+    <main class="content" id="content"></main>
+  </div>
+
+  <dialog id="dialog">
+    <form method="dialog" id="dialog-form" novalidate>
+      <h2 id="dialog-title"></h2>
+      <div id="dialog-body"></div>
+      <p class="error" id="dialog-error" role="alert"></p>
+      <div class="actions">
+        <button class="btn ghost" value="cancel" type="button" id="dialog-cancel">Cancel</button>
+        <button class="btn primary" id="dialog-ok" type="submit">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script src="/static/admin.js" defer></script>
+</body>
+</html>

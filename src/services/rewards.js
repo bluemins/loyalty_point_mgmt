@@ -2,19 +2,15 @@ const crypto = require("crypto");
 const { tenantQuery } = require("../db/tenantDb");
 const { getSettings } = require("./tenants");
 const { getSpendableCredits } = require("./ledger");
+const { inTransaction, lockUser } = require("../db/transaction");
+const { writeAdminLog } = require("./adminLog");
+const { AppError } = require("./errors");
 
 // No 0/O or 1/I, so codes are easy to read out over the phone.
 const VOUCHER_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const LIST_LIMIT = 50;
 
-class RewardError extends Error {
-  constructor(status, code, extra = {}) {
-    super(code);
-    this.status = status;
-    this.code = code;
-    this.extra = extra;
-  }
-}
+class RewardError extends AppError {}
 
 function generateVoucherCode() {
   let raw = "";
@@ -35,7 +31,9 @@ function formatRedemption(row) {
 }
 
 const REDEMPTION_SELECT = `
-  SELECT r.id, r.user_id, r.reward_id, r.points_spent, r.status, r.voucher_code,
+  SELECT r.id, r.user_id, r.reward_id, r.points_spent,
+         CASE WHEN r.status = 'issued' AND r.voucher_expires_at <= NOW() THEN 'expired' ELSE r.status END AS status,
+         r.voucher_code,
          r.voucher_expires_at, r.created_at,
          rw.name AS reward_name, rw.type AS reward_type, rw.image_url AS reward_image_url
   FROM redemptions r
@@ -65,27 +63,6 @@ async function listRedemptions(db, tenantId, userId) {
     [userId, LIST_LIMIT]
   );
   return result.rows.map(formatRedemption);
-}
-
-async function inTransaction(db, work) {
-  const client = await db.connect();
-  try {
-    await client.query("BEGIN");
-    const result = await work(client);
-    await client.query("COMMIT");
-    return result;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-// The user row lock is the same one scan merges and the expiry job take, so
-// everything that changes a user's points runs one at a time per user.
-function lockUser(client, tenantId, userId) {
-  return tenantQuery(client, tenantId, "SELECT id FROM users WHERE tenant_id = $1 AND id = $2 FOR UPDATE", [userId]);
 }
 
 async function findByIdempotencyKey(client, tenantId, key) {
@@ -210,38 +187,54 @@ async function lockRedemption(client, tenantId, redemptionId) {
   const result = await tenantQuery(
     client,
     tenantId,
-    `SELECT id, user_id, reward_id, points_spent, status FROM redemptions
+    `SELECT id, user_id, reward_id, points_spent, status, voucher_expires_at FROM redemptions
      WHERE tenant_id = $1 AND id = $2 FOR UPDATE`,
     [redemptionId]
   );
   return result.rows[0];
 }
 
-// Only an issued voucher can be fulfilled. Fulfilled is final.
-async function fulfilRedemption(db, { tenantId, redemptionId, now = new Date() }) {
+// Fulfil and cancel both need a voucher that is issued and not past its date.
+// Fulfilled, cancelled and expired are all final.
+function assertChangeable(redemption, now) {
+  if (redemption.status !== "issued") {
+    throw new RewardError(409, "invalid_status", { status: redemption.status });
+  }
+  if (redemption.voucher_expires_at <= now) {
+    throw new RewardError(409, "invalid_status", { status: "expired" });
+  }
+}
+
+// audit ({ adminId, reason }) writes the admin action log row in the same
+// transaction as the change.
+async function fulfilRedemption(db, { tenantId, redemptionId, now = new Date(), audit = null }) {
   return inTransaction(db, async (client) => {
     const redemption = await lockRedemption(client, tenantId, redemptionId);
-    if (redemption.status !== "issued") {
-      throw new RewardError(409, "invalid_status", { status: redemption.status });
-    }
+    assertChangeable(redemption, now);
     await tenantQuery(
       client,
       tenantId,
       "UPDATE redemptions SET status = 'fulfilled', fulfilled_at = $3 WHERE tenant_id = $1 AND id = $2",
       [redemptionId, now]
     );
+    if (audit) {
+      await writeAdminLog(client, tenantId, {
+        adminId: audit.adminId,
+        action: "redemption.fulfil",
+        entityType: "redemption",
+        entityId: redemptionId
+      });
+    }
     return { id: redemptionId, status: "fulfilled" };
   });
 }
 
-// Only an issued voucher can be cancelled. The points come back as one new
-// 'refund' credit with a fresh expiry, and the reward's stock is restored.
-async function cancelRedemption(db, { tenantId, redemptionId, cancelledBy = null, now = new Date() }) {
+// The points come back as one new 'refund' credit with a fresh expiry, and the
+// reward's stock is restored.
+async function cancelRedemption(db, { tenantId, redemptionId, cancelledBy = null, now = new Date(), audit = null }) {
   return inTransaction(db, async (client) => {
     const redemption = await lockRedemption(client, tenantId, redemptionId);
-    if (redemption.status !== "issued") {
-      throw new RewardError(409, "invalid_status", { status: redemption.status });
-    }
+    assertChangeable(redemption, now);
 
     const settings = await getSettings(client, tenantId);
     await tenantQuery(
@@ -263,8 +256,29 @@ async function cancelRedemption(db, { tenantId, redemptionId, cancelledBy = null
     await tenantQuery(client, tenantId, "UPDATE rewards SET stock = stock + 1, updated_at = NOW() WHERE tenant_id = $1 AND id = $2", [
       redemption.reward_id
     ]);
+    if (audit) {
+      await writeAdminLog(client, tenantId, {
+        adminId: audit.adminId,
+        action: "redemption.cancel",
+        entityType: "redemption",
+        entityId: redemptionId,
+        details: { reason: audit.reason, refunded_points: redemption.points_spent }
+      });
+    }
     return { id: redemptionId, status: "cancelled", refunded_points: redemption.points_spent };
   });
+}
+
+// Nightly: issued vouchers past their date become 'expired'. No refund.
+async function expireVouchers(db, tenantId, now = new Date()) {
+  const result = await tenantQuery(
+    db,
+    tenantId,
+    `UPDATE redemptions SET status = 'expired', expired_at = $2
+     WHERE tenant_id = $1 AND status = 'issued' AND voucher_expires_at <= $2`,
+    [now]
+  );
+  return result.rowCount;
 }
 
 module.exports = {
@@ -274,5 +288,6 @@ module.exports = {
   listRedemptions,
   redeemReward,
   fulfilRedemption,
-  cancelRedemption
+  cancelRedemption,
+  expireVouchers
 };

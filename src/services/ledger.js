@@ -1,6 +1,9 @@
 const crypto = require("crypto");
 const { tenantQuery } = require("../db/tenantDb");
 const { getSettings } = require("./tenants");
+const { inTransaction, lockUser } = require("../db/transaction");
+const { writeAdminLog } = require("./adminLog");
+const { AppError } = require("./errors");
 
 const ACTIVITY_LIMIT = 50;
 
@@ -117,9 +120,7 @@ async function expireLapsedCredits(db, tenantId, now = new Date()) {
     const client = await db.connect();
     try {
       await client.query("BEGIN");
-      await tenantQuery(client, tenantId, "SELECT id FROM users WHERE tenant_id = $1 AND id = $2 FOR UPDATE", [
-        userId
-      ]);
+      await lockUser(client, tenantId, userId);
 
       const lapsed = await tenantQuery(
         client,
@@ -159,7 +160,57 @@ async function expireLapsedCredits(db, tenantId, now = new Date()) {
   return summary;
 }
 
+// Admin adjustment. Adding points writes one fresh 'adjust' credit; removing
+// points draws from the oldest credits first, like a redemption, and can never
+// take the balance below zero. Logged in the same transaction.
+async function adjustPoints(db, { tenantId, userId, amount, reason, adminId, now = new Date() }) {
+  return inTransaction(db, async (client) => {
+    const locked = await lockUser(client, tenantId, userId);
+    if (locked.rows.length === 0) throw new AppError(404, "user_not_found");
+
+    const referenceId = crypto.randomUUID();
+    if (amount > 0) {
+      const settings = await getSettings(client, tenantId);
+      await tenantQuery(
+        client,
+        tenantId,
+        `INSERT INTO ledger (tenant_id, user_id, type, amount, reference_type, reference_id, expires_at, created_at)
+         VALUES ($1, $2, 'adjust', $3, 'admin_adjust', $4,
+                 $5::timestamptz + make_interval(days => $6::int), $5::timestamptz)`,
+        [userId, amount, referenceId, now, Number(settings.points_expiry_days)]
+      );
+    } else {
+      const credits = await getSpendableCredits(client, tenantId, userId, now);
+      const balance = credits.reduce((sum, c) => sum + c.remaining, 0);
+      if (balance < -amount) throw new AppError(409, "insufficient_points", { balance });
+      let toRemove = -amount;
+      for (const credit of credits) {
+        if (toRemove === 0) break;
+        const take = Math.min(credit.remaining, toRemove);
+        await tenantQuery(
+          client,
+          tenantId,
+          `INSERT INTO ledger (tenant_id, user_id, type, amount, consumes_ledger_id, reference_type, reference_id, created_at)
+           VALUES ($1, $2, 'adjust', $3, $4, 'admin_adjust', $5, $6)`,
+          [userId, -take, credit.id, referenceId, now]
+        );
+        toRemove -= take;
+      }
+    }
+
+    await writeAdminLog(client, tenantId, {
+      adminId,
+      action: "points.adjust",
+      entityType: "user",
+      entityId: userId,
+      details: { amount, reason, reference_id: referenceId }
+    });
+    return { amount, balance: await getBalance(client, tenantId, userId, now) };
+  });
+}
+
 module.exports = {
+  adjustPoints,
   ACTIVITY_LIMIT,
   getBalance,
   getSpendableCredits,

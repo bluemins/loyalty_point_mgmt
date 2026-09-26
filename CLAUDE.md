@@ -79,8 +79,19 @@ Decided:
 - Same key + same user + same reward returns the original result (`replayed: true`). Same key from another user or for another reward is a 409.
 - Voucher codes: `XXXX-XXXX-XX` from an alphabet without 0/O/1/I, unique per tenant.
 - Only `issued` can be fulfilled or cancelled; `fulfilled` is final (reverse with a manual `adjust` instead). Cancel writes one `refund` credit with a fresh `points_expiry_days` expiry (cancel is admin-only, so this cannot be used to extend points) and restores stock.
-- Fulfil/cancel are service functions; their admin routes and action logging come with the admin panel.
-- Not decided yet: what happens to unused vouchers after `voucher_expires_at` (they stay `issued`).
+- Vouchers past `voucher_expires_at` are `expired`: final, no refund (goodwill goes through an admin `adjust`). They read as expired at once; the nightly `npm run expire` also sets `status = 'expired'`.
+- `tenants.brand_name`, `tenants.tagline` and `tenants.colors` are kept for later use but not read; `settings` is the source of truth.
+
+## Admin panel (decided)
+- `/admin` (page) and `/admin/api` (JSON). Admins are created only with `npm run admin:create` (scrypt password hashes, lowercase emails). No UI for admins or tenants yet.
+- Admin identity is global, so `admin_users` lookups are the one place that queries without `tenant_id`; admin Redis keys live under `adm:` (not tenant-scoped).
+- Session: Redis, `ADMIN_SESSION_TTL_HOURS` (12), cookie `asid` signed, httpOnly, `SameSite=Strict`, path `/admin`. The admin row is re-read on every request. Non-GET requests must be JSON (with SameSite=Strict, blocks cross-site forms).
+- Lockout: `ADMIN_LOGIN_MAX_FAILURES` (5) per email per `ADMIN_LOGIN_WINDOW_MINUTES` (15), `ADMIN_LOGIN_MAX_FAILURES_PER_IP` (20) per hour. Same error for unknown email and wrong password.
+- Every tenant route is `/admin/api/t/:slug/...`; a tenant_admin gets 404 for any other tenant (as if it did not exist). `tests/admin.test.js` fails if a route is added without being in its isolation list.
+- `otp_*` and `msg91_*` settings are super_admin only (they control SMS spend on the platform's MSG91 account).
+- Settings are validated per key (`SETTINGS_SCHEMA` in `src/services/adminData.js`); unknown keys are rejected. The editor shows effective values (the same defaults the app uses) and saves only changed keys.
+- Every admin change writes `admin_action_log` in the same transaction (before/after values, reasons). Deleting an admin cannot erase their log (FK is NO ACTION).
+- Point adjustments need a reason; adding points is a fresh credit, removing points takes oldest credits first and cannot go below zero.
 
 ## OTP and security
 - MSG91 auth key and template IDs come from env vars (per tenant where needed). Never expose them to the browser.

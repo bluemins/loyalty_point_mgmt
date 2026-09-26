@@ -8,6 +8,7 @@ const scanRoutes = require("./routes/scan");
 const pointsRoutes = require("./routes/points");
 const rewardRoutes = require("./routes/rewards");
 const { router: pageRoutes } = require("./routes/pages");
+const admin = require("./routes/admin");
 
 const app = express();
 
@@ -56,6 +57,8 @@ app.get("/health", async (req, res) => {
 });
 
 app.use("/t/:slug", resolveTenant, authRoutes, scanRoutes, pointsRoutes, rewardRoutes, pageRoutes);
+app.use("/admin/api", admin.api);
+app.use("/admin", admin.page);
 
 app.use((error, req, res, next) => {
   console.error(error);

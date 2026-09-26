@@ -209,3 +209,31 @@ CREATE TRIGGER ledger_append_only
 -- Voucher codes are unique per tenant; users list their own redemptions.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_redemptions_voucher_code ON redemptions (tenant_id, voucher_code);
 CREATE INDEX IF NOT EXISTS idx_redemptions_tenant_user_created ON redemptions (tenant_id, user_id, created_at);
+
+-- Vouchers past voucher_expires_at become 'expired' (final, no refund).
+ALTER TABLE redemptions ADD COLUMN IF NOT EXISTS expired_at TIMESTAMPTZ;
+ALTER TABLE redemptions DROP CONSTRAINT IF EXISTS redemptions_status_check;
+ALTER TABLE redemptions ADD CONSTRAINT redemptions_status_check
+  CHECK (status IN ('issued', 'fulfilled', 'cancelled', 'expired'));
+CREATE INDEX IF NOT EXISTS idx_redemptions_issued_expiry
+  ON redemptions (tenant_id, voucher_expires_at) WHERE status = 'issued';
+
+-- A super_admin has no tenant; a tenant_admin has exactly one.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'admin_users_role_tenant') THEN
+    ALTER TABLE admin_users ADD CONSTRAINT admin_users_role_tenant CHECK (
+      (role = 'super_admin' AND tenant_id IS NULL) OR (role = 'tenant_admin' AND tenant_id IS NOT NULL)
+    );
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'admin_users_email_lowercase') THEN
+    ALTER TABLE admin_users ADD CONSTRAINT admin_users_email_lowercase CHECK (email = lower(email));
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_admin_action_log_tenant_created ON admin_action_log (tenant_id, created_at);
+
+-- Deleting an admin must not erase their audit trail (was ON DELETE CASCADE).
+-- NO ACTION still allows removing a whole tenant in one statement.
+ALTER TABLE admin_action_log DROP CONSTRAINT IF EXISTS admin_action_log_admin_user_id_fkey;
+ALTER TABLE admin_action_log ADD CONSTRAINT admin_action_log_admin_user_id_fkey
+  FOREIGN KEY (admin_user_id) REFERENCES admin_users(id) ON DELETE NO ACTION;

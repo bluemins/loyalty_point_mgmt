@@ -108,3 +108,63 @@ module.exports = {
   clearRedisFor,
   destroyTestTenant
 };
+
+// ---------- admin helpers ----------
+const { createAdmin } = require('../src/services/adminAuth');
+
+async function createTestAdmin(pool, { role, tenant = null }) {
+  const email = `test-admin-${crypto.randomBytes(4).toString('hex')}@example.test`;
+  const password = `pw-${crypto.randomBytes(8).toString('hex')}`;
+  const admin = await createAdmin(pool, { email, password, role, tenantId: tenant ? tenant.id : null });
+  return { ...admin, password };
+}
+
+// Admin keys are global (adm:...), so tests clean them by admin id and email.
+async function destroyTestAdmins(pool, redis, admins) {
+  for (const admin of admins) {
+    for await (const key of redis.scanIterator({ MATCH: `adm:sess:${admin.id}:*` })) await redis.del(key);
+    await redis.del(`adm:rl:email:${admin.email}`);
+    await pool.query('DELETE FROM admin_users WHERE id = $1', [admin.id]);
+  }
+}
+
+// Logged-in admin client for /admin/api.
+function createAdminClient(baseUrl) {
+  const jar = {};
+  async function request(method, path, body, headers = {}) {
+    const res = await fetch(`${baseUrl}/admin/api${path}`, {
+      method,
+      headers: {
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        Cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; '),
+        ...headers
+      },
+      body: body === undefined ? undefined : JSON.stringify(body)
+    });
+    for (const cookie of res.headers.getSetCookie()) {
+      const [pair] = cookie.split(';');
+      const [name, value] = pair.split('=');
+      jar[name] = value;
+    }
+    const text = await res.text();
+    let json = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      // not JSON
+    }
+    return { status: res.status, body: json, headers: res.headers };
+  }
+  return {
+    jar,
+    request,
+    get: (path) => request('GET', path),
+    post: (path, body = {}) => request('POST', path, body),
+    put: (path, body = {}) => request('PUT', path, body),
+    login: (admin) => request('POST', '/login', { email: admin.email, password: admin.password })
+  };
+}
+
+module.exports.createTestAdmin = createTestAdmin;
+module.exports.destroyTestAdmins = destroyTestAdmins;
+module.exports.createAdminClient = createAdminClient;

@@ -291,6 +291,7 @@ button, input { font: inherit; }
 .status { font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 999px; text-transform: capitalize; background: var(--b2-tint); color: var(--b1); }
 .status.fulfilled { background: #e7f6ec; color: var(--ok); }
 .status.cancelled { background: #fdecea; color: var(--err); }
+.status.expired { background: color-mix(in srgb, var(--muted) 14%, white); color: var(--muted); }
 
 /* ---------- Voucher ---------- */
 .voucher { text-align: center; border: 2px dashed color-mix(in srgb, var(--b2) 45%, white); }

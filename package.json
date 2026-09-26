@@ -11,7 +11,8 @@
     "seed": "node src/db/seed.js",
     "expire": "node src/jobs/expirePoints.js",
     "test": "node --test",
-    "test:e2e": "node --test --test-concurrency=1 tests/e2e/*.e2e.js"
+    "test:e2e": "node --test --test-concurrency=1 tests/e2e/*.e2e.js",
+    "admin:create": "node src/cli/createAdmin.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

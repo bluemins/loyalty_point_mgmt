@@ -127,6 +127,12 @@ Decided:
 - Assert exact counts, not `>= N`. Scripts meant to be re-run (seed, migrate) get a run-twice test.
 - After any run, check the actual Postgres and Redis state, not only the API responses.
 
+## Current state and docs
+- Phases 1–7 are done. Phase 8: review done, fixes and deployment not started (plan in chat awaiting approval). Details: `docs/STATUS.md`.
+- **Open security findings (fix before any production deploy):** mock OTP is active in production when `MSG91_AUTH_KEY` is empty (`000000` logs in anyone); no per-IP limit on new anonymous scan devices; no security headers; malformed JSON returns 500; `/health` returns 200 when degraded; Postgres SSL hard-coded. Full list in `docs/STATUS.md`.
+- Docs in `docs/`: `API.md` (every endpoint), `USER_GUIDE.md` (end users), `ADMIN_GUIDE.md` (admins, points maths, corner cases), `ACCOUNTS.md` (creating users, brands, admins), `STATUS.md`. Screenshots in `docs/images/`.
+- When behaviour, an endpoint or a default changes, update the matching doc in the same commit.
+
 ## Local dev
 - Run in WSL with the Linux Node from nvm (`. ~/.nvm/nvm.sh`), not the Windows Node on `/mnt/c`.
 - `npm run migrate`, `npm run seed` (both safe to re-run), `npm run dev`, `npm test`.

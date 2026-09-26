@@ -1,0 +1,290 @@
+Core Objective & Scope
+We are building a multi-tenant QR loyalty platform for white-label clients. The product is a SaaS-style system where end users scan a shared QR, verify their phone by OTP, earn points, and redeem rewards; tenants get independent branding and rules. The first product category is plywood, but the core architecture must support future white-label expansion.
+
+Target end state:
+
+One deployment, one Postgres DB, with tenant-scoped data access.
+Shared QR-based customer flow with pending points against device tokens.
+OTP verification with mock mode for local dev and tests.
+Append-only points ledger with FIFO redemption and expiry logic.
+Rewards catalog starting with vouchers but schema-ready for product rewards.
+Separate admin auth and tenant-scoped admin UI.
+Browser-first SaaS admin flow; PWA is optional later, not required for v1.
+Mobile-first user flow, no native app in scope for now.
+Current System State & Architecture
+Technologies:
+
+Node.js + Express
+PostgreSQL as system of record
+Redis for rate limiting, cooldown, daily caps, and ephemeral device-token state
+Zod for env validation
+No build step; vanilla mobile-first HTML/CSS/JS served by Express
+Local dev uses WSL + Linux Node/PSQL/Redis, with Docker as optional but not required
+Core architecture decisions:
+
+Single deployment, multi-tenant model.
+tenant_id required on every table.
+Resolver logic is slug-based: /t/:slug/...
+User identity: tenant_id + phone_e164
+Admin identity: email + role + tenant scope
+Separate session namespaces for user and admin
+User screen selection must be based on active session role, not phone number
+All data access should flow through a tenant-aware data layer and not bypass tenant filtering
+Current repo structure:
+
+package.json
+.env.example
+docker-compose.yml
+app.js
+server.js
+env.js
+index.js
+schema.sql
+migrate.js
+seed.js
+foundation.test.js
+Current runtime assumptions:
+
+Postgres local connection: postgresql://app_user:app_password@localhost:5432/loyalty_dev
+Redis local connection: redis://localhost:6379
+Session secret required for signed cookies
+MSG91 auth key is optional in local dev; mock mode enables automatic OTP when unset
+Decisions Made & Constraints
+Technical decisions finalized:
+
+Admin UI will be role-specific but share one backend and one design system.
+Settings use a hybrid model:
+key/value table with explicit required keys for v1
+flexible enough for future config additions
+Rewards schema is product-ready, but implementation starts with vouchers only.
+Custom domains are deferred; slug routing is the first and correct tenant identity path.
+Browser-first admin SaaS experience, with optional PWA installability later.
+Use separate login/session flows for user and admin.
+Do not infer user vs admin screen from phone number; determine by role/session.
+User data must remain isolated by tenant; same phone in different tenants is distinct.
+Constraints and rules:
+
+Every table must contain tenant_id.
+No query may run without a tenant context.
+Never mutate ledger rows; append-only only.
+Balance is derived, never stored as source of truth.
+Redemptions must be atomic with idempotency key and DB row locking.
+Use Redis as a control/cache layer, not the source of truth.
+Local mock OTP only when MSG91_AUTH_KEY is empty or absent.
+Do not add speculative abstractions beyond current phase.
+Do not overbuild; keep Phase 1 minimal and stable.
+No custom domains, payment gateways, native apps, or product delivery tools in v1.
+Progress & Completed Work
+Completed foundation work:
+
+Express project scaffold created.
+Postgres connection module created.
+Redis connection module created.
+Env validation implemented with Zod.
+Migration runner implemented.
+Initial schema created with required tables and indexes.
+Demo seed script created for one tenant and three rewards.
+Initial app bootstrap with / and /health endpoints created.
+Foundation tests created and verified.
+Test validation evidence:
+
+Command executed:
+cd /home/rocky/loyalty_point_mgmt && npm test -- --test-reporter=spec
+Result:
+7 tests passed
+0 failed
+0 skipped
+Current passing coverage:
+
+env configuration loads
+root route responds
+health route responds
+Postgres connectivity when running
+Redis connectivity when running
+migration-created tables exist
+seed data creates demo tenant and rewards catalog
+Major design decisions captured:
+
+Role-based admin UI split
+Hybrid settings model
+Reward schema catalog-ready for products
+Slug-based tenant routing only
+Browser-first admin app with optional PWA later
+Open Tasks & Immediate Next Steps
+
+Install and verify PostgreSQL and Redis in the current WSL environment if not already running.
+
+Confirm Postgres and Redis are reachable from the app and .env values match the actual local services.
+
+Run migration and seed commands successfully in the real local environment:
+
+npm run migrate
+npm run seed
+Start the app:
+
+npm run dev
+Validate /health and root endpoints after DB/Redis are active.
+
+Implement Phase 2: OTP and sessions.
+
+MSG91 REST send/verify behavior
+fixed mock OTP when MSG91_AUTH_KEY is unset
+rate limiting by phone and IP
+verify-attempt cap of 5
+OTP expiry of 5 minutes
+E.164 normalization to +91 default
+signed httpOnly session cookies
+Add Phase 2 tests:
+
+rate limit
+verify attempt limit
+expiry
+mock OTP path
+tenant-level sender/template override path
+Implement Phase 3: scan flow and pending points.
+
+Implement Phase 4: append-only ledger + expiry + balance endpoints.
+
+Implement Phase 5: rewards and redemption flow.
+
+Implement Phase 6: UI screens and theming.
+
+Implement Phase 7: admin panel and tenant-scoped access.
+
+Implement Phase 8: hardening, deployment prep, README, and final QA.
+
+Known Issues, Blockers, or Edge Cases
+
+Known environment issue:
+
+Original failure was not project code-related; it was caused by Windows/WSL path resolution and a wrong shell/toolchain context.
+Resolution: use WSL/Linux shell, Linux Node install, and run commands from /home/rocky/loyalty_point_mgmt.
+Current technical gotchas:
+
+Redis password mismatch can fail app startup if .env does not match the local Redis instance config.
+PostgreSQL must be running before the migration and seed commands succeed.
+The app health route intentionally returns degraded when DB/Redis are unavailable.
+The local design mockup file mentioned in the brief was not present in the repo; UI fidelity must follow the written product brief until the asset is available.
+Admin user/session separation must stay strict to prevent cross-tenant or cross-role leakage.
+The app must treat Redis as ephemeral control data and Postgres as source of truth.
+Working State & Code Snippets
+Current environment:
+
+.env is configured for local WSL dev:
+PORT=3000
+NODE_ENV=development
+APP_NAME=loyalty-demo
+DATABASE_URL=postgresql://app_user:app_password@localhost:5432/loyalty_dev
+REDIS_URL=redis://localhost:6379
+SESSION_SECRET=replace-with-a-long-random-secret
+DEMO_TENANT_SLUG=demo
+DEMO_TENANT_NAME=Demo Works
+MSG91_AUTH_KEY=
+MSG91_SENDER_ID=LOYALTY
+MSG91_TEMPLATE_ID=LOYALTY_OTP
+Core app bootstrap:
+
+/////////////////////////////////
+const app = require("./app");
+const { env } = require("./config/env");
+const { pool, redis, pingServices } = require("./db");
+
+async function start() {
+  await pingServices();
+
+  app.locals.db = pool;
+  app.locals.redis = redis;
+
+  const port = Number(env.PORT) || 3000;
+
+  app.listen(port, () => {
+    console.log(`Loyalty API listening on port ${port}`);
+  });
+}
+
+start().catch((error) => {
+  console.error("Server failed to start:", error);
+  process.exit(1);
+});
+/////////////////////////////////
+
+Health endpoint:
+
+///////////////////////////////
+app.get("/health", async (req, res) => {
+  let dbOk = false;
+  let redisOk = false;
+
+  if (req.app.locals?.db) {
+    try {
+      await req.app.locals.db.query("SELECT 1");
+      dbOk = true;
+    } catch (error) {
+      dbOk = false;
+    }
+  }
+
+  if (req.app.locals?.redis) {
+    try {
+      await req.app.locals.redis.ping();
+      redisOk = true;
+    } catch (error) {
+      redisOk = false;
+    }
+  }
+
+  res.json({
+    status: dbOk && redisOk ? "ok" : "degraded",
+    database: dbOk,
+    redis: redisOk,
+    app: env.APP_NAME
+  });
+});
+///////////////////////////////
+
+Env validation:
+
+///////////////////////////
+const envSchema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  PORT: z.coerce.number().default(3000),
+  APP_NAME: z.string().default("loyalty"),
+  DATABASE_URL: z.string().url(),
+  REDIS_URL: z.string().url(),
+  SESSION_SECRET: z.string().min(16),
+  DEMO_TENANT_SLUG: z.string().default("demo"),
+  DEMO_TENANT_NAME: z.string().default("Demo Works"),
+  MSG91_AUTH_KEY: z.string().optional().or(z.literal("")),
+  MSG91_SENDER_ID: z.string().default("LOYALTY"),
+  MSG91_TEMPLATE_ID: z.string().default("LOYALTY_OTP")
+});
+///////////////////////////
+
+
+
+Core migration test assertion pattern:
+///////////////////////////
+const result = await pool.query(
+  `SELECT to_regclass('public.tenants') AS tenants_exists,
+          to_regclass('public.settings') AS settings_exists,
+          to_regclass('public.users') AS users_exists,
+          to_regclass('public.rewards') AS rewards_exists`
+);
+
+const row = result.rows[0];
+assert.equal(row.tenants_exists, 'tenants');
+assert.equal(row.settings_exists, 'settings');
+assert.equal(row.users_exists, 'users');
+assert.equal(row.rewards_exists, 'rewards');
+///////////////////////////
+
+Validated foundation suite command:
+
+///////////////////////////
+cd /home/rocky/loyalty_point_mgmt && npm test -- --test-reporter=spec
+///////////////////////////
+Verified result:
+
+pass: 7
+fail: 0
+This context is sufficient to resume work in the next chat session with zero loss of continuity.

@@ -1,0 +1,21 @@
+{
+  "name": "loyalty-point-mgmt",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-tenant QR loyalty platform",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "migrate": "node src/db/migrate.js",
+    "seed": "node src/db/seed.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "pg": "^8.11.5",
+    "redis": "^4.6.15",
+    "zod": "^3.23.8"
+  }
+}

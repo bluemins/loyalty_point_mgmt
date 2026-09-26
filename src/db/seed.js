@@ -1,9 +1,34 @@
 const { pool } = require("./index");
 const { env } = require("../config/env");
 
+// Two demo tenants with contrasting themes, so theming is always testable.
+// The first uses a plywood palette: walnut, teak amber and pine cream.
+const DEMO_TENANTS = [
+  {
+    slug: env.DEMO_TENANT_SLUG,
+    name: env.DEMO_TENANT_NAME,
+    tagline: "Trusted materials for every build",
+    colors: { b1: "#4A2412", b2: "#C8742B", soft: "#FBF3E6" },
+    heroTexture: "wood"
+  },
+  {
+    slug: "demo-laminates",
+    name: "Demo Laminates",
+    tagline: "Surfaces that last a lifetime",
+    colors: { b1: "#0F3D3E", b2: "#1F8A70", soft: "#EEF7F4" },
+    heroTexture: "none"
+  }
+];
+
 // Idempotent: safe to run any number of times. Tests pass their own slug so
-// they never touch the demo tenant.
-async function seed({ slug = env.DEMO_TENANT_SLUG, name = env.DEMO_TENANT_NAME } = {}) {
+// they never touch the demo tenants.
+async function seed({
+  slug = DEMO_TENANTS[0].slug,
+  name = DEMO_TENANTS[0].name,
+  tagline = DEMO_TENANTS[0].tagline,
+  colors = DEMO_TENANTS[0].colors,
+  heroTexture = DEMO_TENANTS[0].heroTexture
+} = {}) {
   const tenantResult = await pool.query(
     `
       INSERT INTO tenants (slug, name, brand_name, tagline, colors, active)
@@ -15,12 +40,8 @@ async function seed({ slug = env.DEMO_TENANT_SLUG, name = env.DEMO_TENANT_NAME }
       slug,
       name,
       name,
-      "Trusted materials for every build",
-      JSON.stringify({
-        b1: "#0F172A",
-        b2: "#1D4ED8",
-        soft: "#F8FAFC"
-      })
+      tagline,
+      JSON.stringify(colors)
     ]
   );
 
@@ -33,8 +54,9 @@ async function seed({ slug = env.DEMO_TENANT_SLUG, name = env.DEMO_TENANT_NAME }
 
   const settings = [
     ["brand_name", name],
-    ["tagline", "Trusted materials for every build"],
-    ["colors", { b1: "#0F172A", b2: "#1D4ED8", soft: "#F8FAFC" }],
+    ["tagline", tagline],
+    ["colors", colors],
+    ["hero_texture", heroTexture],
     ["points_per_scan", 10],
     ["scan_cooldown_minutes", 10],
     ["daily_scan_cap", 5],
@@ -85,12 +107,18 @@ async function seed({ slug = env.DEMO_TENANT_SLUG, name = env.DEMO_TENANT_NAME }
   return tenant;
 }
 
-module.exports = { seed };
+module.exports = { seed, DEMO_TENANTS };
+
+async function seedDemoTenants() {
+  const seeded = [];
+  for (const demo of DEMO_TENANTS) seeded.push(await seed(demo));
+  return seeded;
+}
 
 if (require.main === module) {
-  seed()
-    .then((tenant) => {
-      console.log(`Seeded demo tenant: ${tenant.slug}`);
+  seedDemoTenants()
+    .then((tenants) => {
+      console.log(`Seeded demo tenants: ${tenants.map((t) => t.slug).join(", ")}`);
       process.exit(0);
     })
     .catch((error) => {

@@ -1,3 +1,4 @@
+const path = require("path");
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const { env } = require("./config/env");
@@ -6,6 +7,7 @@ const authRoutes = require("./routes/auth");
 const scanRoutes = require("./routes/scan");
 const pointsRoutes = require("./routes/points");
 const rewardRoutes = require("./routes/rewards");
+const { router: pageRoutes } = require("./routes/pages");
 
 const app = express();
 
@@ -16,6 +18,7 @@ if (env.NODE_ENV === "production") {
 }
 
 app.use(express.json());
+app.use("/static", express.static(path.join(__dirname, "../public"), { maxAge: "1h" }));
 app.use(cookieParser(env.SESSION_SECRET));
 
 app.get("/", (req, res) => {
@@ -52,7 +55,7 @@ app.get("/health", async (req, res) => {
   });
 });
 
-app.use("/t/:slug", resolveTenant, authRoutes, scanRoutes, pointsRoutes, rewardRoutes);
+app.use("/t/:slug", resolveTenant, authRoutes, scanRoutes, pointsRoutes, rewardRoutes, pageRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);

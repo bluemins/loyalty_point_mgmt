@@ -112,7 +112,11 @@ router.post("/profile", session.loadUserSession, async (req, res, next) => {
 
 router.get("/session", session.loadUserSession, (req, res) => {
   if (!req.session) return res.json({ authenticated: false });
-  res.json({ authenticated: true, phone: req.session.phone_e164 });
+  res.json({
+    authenticated: true,
+    phone: req.session.phone_e164,
+    has_profile: Boolean(req.session.user_id)
+  });
 });
 
 router.post("/logout", session.loadUserSession, async (req, res, next) => {

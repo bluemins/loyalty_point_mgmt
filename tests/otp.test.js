@@ -133,7 +133,8 @@ test('session is Redis-backed: valid, tamper-proof, tenant-scoped and revocable'
 
   assert.deepEqual(await getSession(tenantA, cookie), {
     authenticated: true,
-    phone: '+919876500001'
+    phone: '+919876500001',
+    has_profile: false
   });
 
   const tampered = cookie.replace(/.$/, (ch) => (ch === 'A' ? 'B' : 'A'));

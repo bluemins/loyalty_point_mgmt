@@ -8,6 +8,8 @@ const SETTING_DEFAULTS = {
   points_expiry_days: 60,
   pending_points_ttl_days: 30,
   expiring_soon_days: 7,
+  hero_texture: "none",
+  logo_url: null,
   voucher_validity_days: 30,
   otp_send_limit_per_phone: 3,
   otp_send_window_phone_minutes: 15,
@@ -42,6 +44,15 @@ async function resolveTenant(req, res, next) {
   try {
     const tenant = await findTenantBySlug(req.app.locals.db, req.params.slug);
     if (!tenant) {
+      // A person opening a bad QR link gets a page; API calls get JSON.
+      if (req.method === "GET" && req.accepts(["json", "html"]) === "html") {
+        return res
+          .status(404)
+          .type("html")
+          .send('<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1">' +
+            "<title>Not found</title><p style=\"font:16px system-ui;padding:24px\">" +
+            "This link is not valid. Please scan the QR code again.</p>");
+      }
       return res.status(404).json({ error: "tenant_not_found" });
     }
     req.tenant = tenant;

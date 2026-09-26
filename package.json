@@ -10,7 +10,8 @@
     "migrate": "node src/db/migrate.js",
     "seed": "node src/db/seed.js",
     "expire": "node src/jobs/expirePoints.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:e2e": "node --test --test-concurrency=1 tests/e2e/*.e2e.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
@@ -19,5 +20,8 @@
     "pg": "^8.11.5",
     "redis": "^4.6.15",
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
   }
 }

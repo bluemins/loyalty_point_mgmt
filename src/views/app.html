@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="{{b1}}">
+  <title>{{brand}} Rewards</title>
+  <style>:root { --b1: {{b1}}; --b2: {{b2}}; --soft: {{soft}}; }</style>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="texture-{{texture}}" data-slug="{{slug}}" data-mode="{{mode}}">
+  <main class="app">
+
+    <header class="hero" id="hero">
+      <div class="hero-top">
+        <div class="brand">{{logo}}<span class="brand-name">{{brand}}</span></div>
+        <button class="link-light" id="logout-btn" type="button" hidden>Log out</button>
+      </div>
+      <p class="tagline">{{tagline}}</p>
+
+      <!-- Scan result, shown on the landing screen -->
+      <div class="scan-result" id="scan-result" hidden>
+        <div class="burst" id="scan-points"></div>
+      </div>
+
+      <!-- Points ring, shown on the points home -->
+      <div class="ring-wrap" id="ring-wrap" hidden>
+        <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ring-track" cx="60" cy="60" r="52"></circle>
+          <circle class="ring-fill" id="ring-fill" cx="60" cy="60" r="52"></circle>
+        </svg>
+        <div class="ring-label">
+          <span class="ring-value" id="balance">0</span>
+          <span class="ring-unit">points</span>
+        </div>
+      </div>
+      <p class="ring-caption" id="ring-caption" hidden></p>
+    </header>
+
+    <section class="screen" id="screen-landing" hidden>
+      <div class="card" id="landing-card">
+        <h2 id="landing-title">Earn points every time you scan</h2>
+        <p class="muted" id="landing-text">Scan the QR on every purchase and redeem your points for rewards.</p>
+        <button class="btn primary" id="landing-cta" type="button">Verify your phone</button>
+        <button class="btn ghost" id="landing-home" type="button" hidden>See my points</button>
+      </div>
+      <h3 class="section-title">Rewards you can earn</h3>
+      <div class="teaser" id="rewards-teaser"></div>
+    </section>
+
+    <section class="screen" id="screen-login" hidden>
+      <div class="card">
+        <form id="phone-form" novalidate>
+          <h2>Verify your phone</h2>
+          <p class="muted" id="pending-note">We will send a 6-digit code by SMS.</p>
+          <label class="field">
+            <span>Mobile number</span>
+            <div class="phone-input">
+              <span class="prefix">+91</span>
+              <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel-national"
+                     maxlength="10" placeholder="98765 43210" required>
+            </div>
+          </label>
+          <p class="error" id="phone-error" role="alert"></p>
+          <button class="btn primary" id="send-btn" type="submit">Send code</button>
+        </form>
+
+        <form id="code-form" novalidate hidden>
+          <h2>Enter the code</h2>
+          <p class="muted">Sent to <strong id="code-phone"></strong>
+            <button class="link" id="change-phone" type="button">Change</button></p>
+          <input class="code-input" id="code" name="code" type="text" inputmode="numeric"
+                 autocomplete="one-time-code" maxlength="6" placeholder="••••••" required>
+          <p class="error" id="code-error" role="alert"></p>
+          <button class="btn primary" id="verify-btn" type="submit">Verify</button>
+          <button class="btn ghost" id="resend-btn" type="button" disabled>Resend code</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-profile" hidden>
+      <form class="card" id="profile-form" novalidate>
+        <h2>Welcome! Tell us about you</h2>
+        <p class="pill" id="profile-pending" hidden></p>
+        <label class="field">
+          <span>Your name</span>
+          <input id="name" name="name" type="text" autocomplete="name" maxlength="80" required>
+        </label>
+        <fieldset class="field">
+          <legend>I am a</legend>
+          <div class="chips" id="categories"></div>
+        </fieldset>
+        <p class="error" id="profile-error" role="alert"></p>
+        <button class="btn primary" type="submit">Continue</button>
+      </form>
+    </section>
+
+    <section class="screen" id="screen-home" hidden>
+      <div class="card warn" id="expiring-card" hidden>
+        <strong id="expiring-total"></strong>
+        <ul class="expiring-list" id="expiring-list"></ul>
+      </div>
+      <button class="btn primary" id="go-rewards" type="button">Redeem rewards</button>
+      <h3 class="section-title">Activity</h3>
+      <ul class="activity" id="activity"></ul>
+      <p class="muted center" id="activity-empty" hidden>No activity yet. Scan a QR to earn points.</p>
+    </section>
+
+    <section class="screen" id="screen-rewards" hidden>
+      <div class="tabs" role="tablist">
+        <button class="tab" id="tab-catalog" role="tab" type="button">Rewards</button>
+        <button class="tab" id="tab-vouchers" role="tab" type="button">My vouchers</button>
+      </div>
+      <div class="grid" id="rewards-grid"></div>
+      <ul class="vouchers" id="vouchers-list" hidden></ul>
+      <p class="muted center" id="vouchers-empty" hidden>No vouchers yet.</p>
+      <button class="btn ghost" id="rewards-back" type="button">Back to my points</button>
+    </section>
+
+    <section class="screen" id="screen-voucher" hidden>
+      <div class="card voucher">
+        <p class="muted" id="voucher-status">Your voucher</p>
+        <h2 id="voucher-reward"></h2>
+        <div class="voucher-code" id="voucher-code"></div>
+        <button class="btn ghost" id="copy-btn" type="button">Copy code</button>
+        <p class="muted" id="voucher-valid"></p>
+        <p class="hint">Show this code at the store to claim your reward.</p>
+      </div>
+      <button class="btn primary" id="voucher-home" type="button">Back to my points</button>
+    </section>
+
+  </main>
+
+  <div class="sheet-backdrop" id="sheet" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <h3 id="sheet-title"></h3>
+      <p class="muted" id="sheet-text"></p>
+      <p class="error" id="sheet-error" role="alert"></p>
+      <button class="btn primary" id="sheet-confirm" type="button">Redeem</button>
+      <button class="btn ghost" id="sheet-cancel" type="button">Not now</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

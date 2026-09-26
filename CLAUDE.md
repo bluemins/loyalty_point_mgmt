@@ -101,6 +101,14 @@ Decided:
 - Screens: scan landing, OTP, new-user profile, points home, rewards catalog, voucher issued.
 - Admin: users list, ledger view, redemptions (mark fulfilled or cancel), settings editor, reward catalog editor.
 
+Decided:
+- The mockup file was never provided; the UI follows this brief. First client palette (from their wood photos): walnut `#4A2412`, teak amber `#C8742B`, pine cream `#FBF3E6`, with a CSS-drawn wood grain on the hero (`hero_texture` = `wood` | `none`). No photos are shipped (licence unknown).
+- One page (`src/views/app.html`, `public/app.js`, `public/app.css`) with hash screens. `GET /t/:slug/scan` and `GET /t/:slug/` render it with the tenant's colours, brand, tagline and logo; `GET /t/:slug/config` is the public config.
+- Tenant values are validated before reaching the page (hex colours only, known textures, http(s) or root-relative `logo_url`) and HTML-escaped. The client inserts data with `textContent` only.
+- Neutral text and shadow colours are derived from `--b1` via `color-mix`, so no theme looks tinted by another.
+- `demo-laminates` (teal) is seeded next to `demo` so two themes are always available.
+- `npm run test:e2e` (Playwright, dev-only) runs the full journey in two themes and writes screenshots to `screenshots/` (gitignored). In WSL, Chromium needs `sudo env "PATH=$PATH" npx playwright install-deps chromium` once.
+
 ## Testing
 - Automated tests for: daily cap, cooldown, FIFO redemption, expiry, double-spend prevention, tenant isolation (tenant A can never read tenant B).
 - Mock OTP mode for tests. Tests force mock mode via `app.locals.msg91` even if `.env` has a real key; they must never send SMS.

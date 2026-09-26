@@ -37,6 +37,7 @@ async function seed() {
     ["scan_cooldown_minutes", 10],
     ["daily_scan_cap", 5],
     ["points_expiry_days", 60],
+    ["pending_points_ttl_days", 30],
     ["voucher_validity_days", 30],
     ["user_categories", ["Carpenter", "Contractor", "End User"]],
     ["msg91_sender_id", env.MSG91_SENDER_ID],

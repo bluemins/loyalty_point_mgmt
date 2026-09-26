@@ -2,6 +2,11 @@ const { tenantQuery } = require("../db/tenantDb");
 
 // Fallbacks used when a tenant has not set a key in the settings table.
 const SETTING_DEFAULTS = {
+  points_per_scan: 10,
+  scan_cooldown_minutes: 10,
+  daily_scan_cap: 5,
+  points_expiry_days: 60,
+  pending_points_ttl_days: 30,
   otp_send_limit_per_phone: 3,
   otp_send_window_phone_minutes: 15,
   otp_send_limit_per_ip: 10,

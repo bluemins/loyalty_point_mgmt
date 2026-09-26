@@ -3,6 +3,10 @@ const { env } = require("../config/env");
 const { normalizePhone } = require("../services/phone");
 const otp = require("../services/otp");
 const session = require("../services/session");
+const scans = require("../services/scans");
+const users = require("../services/users");
+const { getSettings } = require("../services/tenants");
+const { readDeviceHash } = require("../services/device");
 
 const router = express.Router({ mergeParams: true });
 
@@ -43,10 +47,66 @@ router.post("/otp/verify", async (req, res, next) => {
 
   try {
     await otp.verifyOtp(deps(req), { tenant: req.tenant, phone, otp: req.body?.otp });
-    await session.createUserSession(req.app.locals.redis, res, req.tenant, phone);
-    res.json({ ok: true, phone });
+
+    const { db, redis } = req.app.locals;
+    const deviceHash = readDeviceHash(req);
+    const user = await users.findUserByPhone(db, req.tenant.id, phone);
+    await session.createUserSession(redis, res, req.tenant, phone, user?.id || null);
+
+    // Existing phone: claim this device's pending points now.
+    if (user) {
+      const merged = await scans.mergePending(req.app.locals, {
+        tenant: req.tenant,
+        userId: user.id,
+        deviceHash
+      });
+      return res.json({ ok: true, phone, needs_profile: false, merged_points: merged.points });
+    }
+
+    // New phone: pending points are claimed once the profile is created.
+    const pending = await scans.getPendingPoints(req.app.locals, { tenant: req.tenant, deviceHash });
+    res.json({ ok: true, phone, needs_profile: true, pending_points: pending });
   } catch (error) {
     sendOtpError(res, error, next);
+  }
+});
+
+router.post("/profile", session.loadUserSession, async (req, res, next) => {
+  if (!req.session) return res.status(401).json({ error: "not_authenticated" });
+  if (req.session.user_id) return res.status(409).json({ error: "profile_exists" });
+
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  if (name.length < 1 || name.length > 80) {
+    return res.status(400).json({ error: "invalid_name" });
+  }
+
+  try {
+    const { db } = req.app.locals;
+    const settings = await getSettings(db, req.tenant.id);
+    const categories = Array.isArray(settings.user_categories) ? settings.user_categories : [];
+    if (!categories.includes(req.body?.category)) {
+      return res.status(400).json({ error: "invalid_category", categories });
+    }
+
+    const user = await users.createUser(db, req.tenant.id, {
+      phoneE164: req.session.phone_e164,
+      name,
+      category: req.body.category
+    });
+    await session.setSessionUser(req, user.id);
+
+    const merged = await scans.mergePending(req.app.locals, {
+      tenant: req.tenant,
+      userId: user.id,
+      deviceHash: readDeviceHash(req)
+    });
+    res.json({
+      ok: true,
+      user: { name: user.name, category: user.category, phone: user.phone_e164 },
+      merged_points: merged.points
+    });
+  } catch (error) {
+    next(error);
   }
 });
 

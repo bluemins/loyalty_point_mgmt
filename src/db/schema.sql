@@ -151,6 +151,16 @@ CREATE INDEX IF NOT EXISTS idx_users_tenant_phone ON users (tenant_id, phone_e16
 CREATE INDEX IF NOT EXISTS idx_otp_requests_phone_time ON otp_requests (tenant_id, phone_e164, created_at);
 CREATE INDEX IF NOT EXISTS idx_device_tokens_tenant_user ON device_tokens (tenant_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_scan_events_tenant_created ON scan_events (tenant_id, created_at);
+
+-- Balance is always derived from the ledger, so no running balance is stored.
+ALTER TABLE ledger DROP COLUMN IF EXISTS balance_after;
+
+-- Set when an anonymous pending scan is merged into a user, so it is claimed once.
+ALTER TABLE scan_events ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_scan_events_pending_device
+  ON scan_events (tenant_id, device_token_hash) WHERE outcome = 'pending';
+CREATE INDEX IF NOT EXISTS idx_scan_events_user_created
+  ON scan_events (tenant_id, user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_ledger_tenant_user_created ON ledger (tenant_id, user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_ledger_tenant_user_expires ON ledger (tenant_id, user_id, expires_at);
 CREATE INDEX IF NOT EXISTS idx_rewards_tenant_active ON rewards (tenant_id, active, points_cost);

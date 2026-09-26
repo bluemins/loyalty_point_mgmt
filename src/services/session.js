@@ -21,17 +21,26 @@ function cookieOptions(tenant) {
   };
 }
 
-async function createUserSession(redis, res, tenant, phoneE164) {
+// userId is null for a verified phone that has not created its profile yet.
+async function createUserSession(redis, res, tenant, phoneE164, userId = null) {
   const id = crypto.randomBytes(32).toString("base64url");
   const data = {
     role: "user",
     tenant_id: tenant.id,
     phone_e164: phoneE164,
+    user_id: userId,
     created_at: new Date().toISOString()
   };
   await redis.set(sessionKey(id), JSON.stringify(data), { EX: TTL_SECONDS });
   res.cookie(COOKIE_NAME, id, { ...cookieOptions(tenant), maxAge: TTL_SECONDS * 1000 });
   return data;
+}
+
+// Attaches the new user to the current session once the profile is created.
+async function setSessionUser(req, userId) {
+  const data = { ...req.session, user_id: userId };
+  await req.app.locals.redis.set(sessionKey(req.sessionId), JSON.stringify(data), { KEEPTTL: true });
+  req.session = data;
 }
 
 // Middleware: sets req.session when a valid user session exists for this tenant.
@@ -59,4 +68,11 @@ async function destroyUserSession(req, res) {
   res.clearCookie(COOKIE_NAME, cookieOptions(req.tenant));
 }
 
-module.exports = { COOKIE_NAME, createUserSession, loadUserSession, destroyUserSession };
+module.exports = {
+  COOKIE_NAME,
+  cookieOptions,
+  createUserSession,
+  setSessionUser,
+  loadUserSession,
+  destroyUserSession
+};

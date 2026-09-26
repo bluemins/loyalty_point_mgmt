@@ -3,6 +3,7 @@ const cookieParser = require("cookie-parser");
 const { env } = require("./config/env");
 const { resolveTenant } = require("./services/tenants");
 const authRoutes = require("./routes/auth");
+const scanRoutes = require("./routes/scan");
 
 const app = express();
 
@@ -49,7 +50,7 @@ app.get("/health", async (req, res) => {
   });
 });
 
-app.use("/t/:slug", resolveTenant, authRoutes);
+app.use("/t/:slug", resolveTenant, authRoutes, scanRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);

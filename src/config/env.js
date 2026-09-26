@@ -9,6 +9,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
   SESSION_SECRET: z.string().min(16),
+  SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
   DEMO_TENANT_SLUG: z.string().default("demo"),
   DEMO_TENANT_NAME: z.string().default("Demo Works"),
   MSG91_AUTH_KEY: z.string().optional().or(z.literal("")),

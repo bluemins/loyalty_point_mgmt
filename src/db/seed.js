@@ -40,7 +40,11 @@ async function seed() {
     ["voucher_validity_days", 30],
     ["user_categories", ["Carpenter", "Contractor", "End User"]],
     ["msg91_sender_id", env.MSG91_SENDER_ID],
-    ["msg91_template_id", env.MSG91_TEMPLATE_ID]
+    ["msg91_template_id", env.MSG91_TEMPLATE_ID],
+    ["otp_send_limit_per_phone", 3],
+    ["otp_send_window_phone_minutes", 15],
+    ["otp_send_limit_per_ip", 10],
+    ["otp_send_window_ip_minutes", 60]
   ];
 
   for (const [key, value] of settings) {

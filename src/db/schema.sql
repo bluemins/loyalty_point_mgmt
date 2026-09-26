@@ -49,6 +49,9 @@ CREATE TABLE IF NOT EXISTS otp_requests (
   status TEXT NOT NULL DEFAULT 'pending'
 );
 
+-- MSG91 generates and holds the real OTP, so we usually have no hash to store.
+ALTER TABLE otp_requests ALTER COLUMN otp_hash DROP NOT NULL;
+
 CREATE TABLE IF NOT EXISTS device_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

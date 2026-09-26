@@ -41,6 +41,10 @@ Phone ──POST /t/demo/otp/verify──▶ our server
                                    │ 4. wrong → 401 (attempts_left); right → create session
                                    │ 5. session in Redis (30 days) + signed httpOnly cookie "sid"
 
+We never see the real OTP. MSG91 generates it, texts it, and checks it. We only enforce the 5-minute expiry and the 5-attempt limit ourselves, so the rules are the same in mock and real mode.
+Mode is chosen automatically. If MSG91_AUTH_KEY is empty you're in mock mode (OTP 000000, and responses include "mock": true). If it's set, real SMS go out.
+The auth key stays on the server. It goes only in the authkey request header to MSG91 (src/services/msg91.js) and is never sent to the browser.
+
 ## Project structure
 
 ```

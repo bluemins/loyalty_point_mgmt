@@ -6,8 +6,10 @@ const { env } = require("../config/env");
 const COOKIE_NAME = "sid";
 const TTL_SECONDS = env.SESSION_TTL_DAYS * 24 * 60 * 60;
 
-function sessionKey(id) {
-  return `sess:${id}`;
+// The tenant id in the key keeps every Redis key for a tenant findable
+// (and deletable) by the same *:<tenant_id>:* pattern.
+function sessionKey(tenantId, id) {
+  return `sess:${tenantId}:${id}`;
 }
 
 // Scoping the cookie to /t/<slug> gives each tenant its own session cookie.
@@ -31,7 +33,7 @@ async function createUserSession(redis, res, tenant, phoneE164, userId = null) {
     user_id: userId,
     created_at: new Date().toISOString()
   };
-  await redis.set(sessionKey(id), JSON.stringify(data), { EX: TTL_SECONDS });
+  await redis.set(sessionKey(tenant.id, id), JSON.stringify(data), { EX: TTL_SECONDS });
   res.cookie(COOKIE_NAME, id, { ...cookieOptions(tenant), maxAge: TTL_SECONDS * 1000 });
   return data;
 }
@@ -39,7 +41,7 @@ async function createUserSession(redis, res, tenant, phoneE164, userId = null) {
 // Attaches the new user to the current session once the profile is created.
 async function setSessionUser(req, userId) {
   const data = { ...req.session, user_id: userId };
-  await req.app.locals.redis.set(sessionKey(req.sessionId), JSON.stringify(data), { KEEPTTL: true });
+  await req.app.locals.redis.set(sessionKey(req.tenant.id, req.sessionId), JSON.stringify(data), { KEEPTTL: true });
   req.session = data;
 }
 
@@ -48,7 +50,7 @@ async function loadUserSession(req, res, next) {
   try {
     const id = req.signedCookies?.[COOKIE_NAME];
     if (id) {
-      const raw = await req.app.locals.redis.get(sessionKey(id));
+      const raw = await req.app.locals.redis.get(sessionKey(req.tenant.id, id));
       const data = raw ? JSON.parse(raw) : null;
       if (data && data.role === "user" && data.tenant_id === req.tenant.id) {
         req.session = data;
@@ -63,7 +65,7 @@ async function loadUserSession(req, res, next) {
 
 async function destroyUserSession(req, res) {
   if (req.sessionId) {
-    await req.app.locals.redis.del(sessionKey(req.sessionId));
+    await req.app.locals.redis.del(sessionKey(req.tenant.id, req.sessionId));
   }
   res.clearCookie(COOKIE_NAME, cookieOptions(req.tenant));
 }

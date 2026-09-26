@@ -7,6 +7,12 @@ const { pool, redis } = require('../src/db');
 const { MOCK_OTP } = require('../src/services/msg91');
 const scans = require('../src/services/scans');
 const users = require('../src/services/users');
+const {
+  createTestTenant,
+  setSettings: setTenantSettings,
+  clearRedisFor,
+  destroyTestTenant
+} = require('./helpers');
 
 const CATEGORIES = ['Carpenter', 'Contractor', 'End User'];
 const IST = '+05:30';
@@ -18,30 +24,12 @@ let tenantSlow; // default rules: 10 min cooldown, cap 5
 let tenantFast; // no cooldown, so cap and merge tests can scan back to back
 let tenantOther; // for isolation checks
 
-async function createTenant(label, settings = {}) {
-  const slug = `test-${label}-${crypto.randomBytes(4).toString('hex')}`;
-  const { rows } = await pool.query(
-    'INSERT INTO tenants (slug, name) VALUES ($1, $2) RETURNING id, slug',
-    [slug, `Test ${label}`]
-  );
-  await setSettings(rows[0], { user_categories: CATEGORIES, ...settings });
-  return rows[0];
+function createTenant(label, settings = {}) {
+  return createTestTenant(pool, label, { user_categories: CATEGORIES, ...settings });
 }
 
-async function setSettings(tenant, settings) {
-  for (const [key, value] of Object.entries(settings)) {
-    await pool.query(
-      `INSERT INTO settings (tenant_id, key, value) VALUES ($1, $2, $3::jsonb)
-       ON CONFLICT (tenant_id, key) DO UPDATE SET value = EXCLUDED.value`,
-      [tenant.id, key, JSON.stringify(value)]
-    );
-  }
-}
-
-async function clearRedisFor(tenant) {
-  for await (const key of redis.scanIterator({ MATCH: `*:${tenant.id}:*` })) {
-    await redis.del(key);
-  }
+function setSettings(tenant, settings) {
+  return setTenantSettings(pool, tenant, settings);
 }
 
 // A minimal browser: keeps cookies between requests to one tenant.
@@ -123,14 +111,11 @@ before(async () => {
 });
 
 beforeEach(async () => {
-  for (const t of [tenantSlow, tenantFast, tenantOther]) await clearRedisFor(t);
+  for (const t of [tenantSlow, tenantFast, tenantOther]) await clearRedisFor(redis, t);
 });
 
 after(async () => {
-  for (const t of [tenantSlow, tenantFast, tenantOther]) await clearRedisFor(t);
-  await pool.query('DELETE FROM tenants WHERE id = ANY($1)', [
-    [tenantSlow.id, tenantFast.id, tenantOther.id]
-  ]);
+  for (const t of [tenantSlow, tenantFast, tenantOther]) await destroyTestTenant(pool, redis, t);
   await new Promise((resolve) => server.close(resolve));
   await redis.quit();
   await pool.end();
@@ -382,4 +367,21 @@ test('unknown fields in the scan request do not change points', async () => {
   const b = browser(tenantFast);
   const res = await b.post('/scan', { points: 1000, user_id: 'x' });
   assert.equal(res.body.points, 10);
+});
+
+test('every Redis key the app writes is tenant-scoped, so teardown can find it', async () => {
+  const b = browser(tenantFast);
+  await b.scan();
+  await b.login(randomPhone());
+  await b.post('/profile', { name: 'Keys', category: 'Carpenter' });
+  await b.scan();
+
+  const tenantScoped = /:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:/;
+  const unscoped = [];
+  for (const prefix of ['sess', 'otp', 'rl', 'scan']) {
+    for await (const key of redis.scanIterator({ MATCH: `${prefix}:*` })) {
+      if (!tenantScoped.test(key)) unscoped.push(key);
+    }
+  }
+  assert.deepEqual(unscoped, []);
 });

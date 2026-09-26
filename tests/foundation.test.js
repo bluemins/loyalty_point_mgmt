@@ -1,9 +1,12 @@
 const test = require('node:test');
+const crypto = require('crypto');
 const assert = require('node:assert/strict');
 
 const app = require('../src/app');
 const { env } = require('../src/config/env');
 const { pool, redis, pingServices } = require('../src/db');
+const { seed } = require('../src/db/seed');
+const { TENANT_TABLES, destroyTestTenant } = require('./helpers');
 
 function listen(appInstance) {
   return new Promise((resolve, reject) => {
@@ -134,39 +137,47 @@ test('migration execution creates the required base tables', async (t) => {
   await pool.query('DROP TABLE IF EXISTS _foundation_test_marker;');
 });
 
-test('seed data creates the demo tenant and reward catalog', async (t) => {
-  const dbAvailable = await ensureDatabaseAvailable();
-  const redisAvailable = await ensureRedisAvailable();
-
-  if (!dbAvailable) {
-    t.skip('PostgreSQL is not running locally; skipping seed validation test.');
+test('seed is idempotent: running it twice gives one tenant, 3 rewards, no duplicates', async (t) => {
+  if (!(await ensureDatabaseAvailable())) {
+    t.skip('PostgreSQL is not running locally; skipping seed test.');
     return;
   }
+  if (!redis.isOpen) await redis.connect();
 
-  const tenantResult = await pool.query(
-    `SELECT COUNT(*) AS tenant_count FROM tenants WHERE slug = $1`,
-    [env.DEMO_TENANT_SLUG]
-  );
+  // A throwaway slug, so the test never touches the demo tenant's data.
+  const slug = `test-seed-${crypto.randomBytes(4).toString('hex')}`;
+  const first = await seed({ slug, name: 'Seed Test' });
+  const countRows = async (table) =>
+    Number((await pool.query(`SELECT COUNT(*) FROM ${table} WHERE tenant_id = $1`, [first.id])).rows[0].count);
+  const settingsAfterFirst = await countRows('settings');
 
-  const settingResult = await pool.query(
-    `SELECT COUNT(*) AS setting_count FROM settings WHERE tenant_id = (
-      SELECT id FROM tenants WHERE slug = $1
-    )`,
-    [env.DEMO_TENANT_SLUG]
-  );
+  const second = await seed({ slug, name: 'Seed Test' });
 
-  const rewardResult = await pool.query(
-    `SELECT COUNT(*) AS reward_count FROM rewards WHERE tenant_id = (
-      SELECT id FROM tenants WHERE slug = $1
-    )`,
-    [env.DEMO_TENANT_SLUG]
-  );
-
-  assert.equal(Number(tenantResult.rows[0].tenant_count), 1);
-  assert.ok(Number(settingResult.rows[0].setting_count) >= 1);
-  assert.ok(Number(rewardResult.rows[0].reward_count) >= 3);
-
-  if (redisAvailable && redis.isOpen) {
+  try {
+    assert.equal(second.id, first.id, 'same tenant reused');
+    assert.equal(await countRows('rewards'), 3, 'exactly 3 rewards after two runs');
+    assert.equal(await countRows('settings'), settingsAfterFirst, 'no extra settings rows');
+    const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM tenants WHERE slug = $1', [slug]);
+    assert.equal(rows[0].n, 1);
+  } finally {
+    await destroyTestTenant(pool, redis, first);
     await redis.quit();
   }
+});
+
+test('test cleanup covers every table that has tenant_id', async (t) => {
+  if (!(await ensureDatabaseAvailable())) {
+    t.skip('PostgreSQL is not running locally; skipping schema check.');
+    return;
+  }
+  const { rows } = await pool.query(
+    `SELECT table_name FROM information_schema.columns
+     WHERE table_schema = 'public' AND column_name = 'tenant_id'
+     ORDER BY table_name`
+  );
+  assert.deepEqual(
+    rows.map((r) => r.table_name),
+    [...TENANT_TABLES].sort(),
+    'add new tenant tables to TENANT_TABLES in tests/helpers.js'
+  );
 });

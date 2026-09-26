@@ -1,7 +1,9 @@
 const { pool } = require("./index");
 const { env } = require("../config/env");
 
-async function seed() {
+// Idempotent: safe to run any number of times. Tests pass their own slug so
+// they never touch the demo tenant.
+async function seed({ slug = env.DEMO_TENANT_SLUG, name = env.DEMO_TENANT_NAME } = {}) {
   const tenantResult = await pool.query(
     `
       INSERT INTO tenants (slug, name, brand_name, tagline, colors, active)
@@ -10,9 +12,9 @@ async function seed() {
       RETURNING id, slug, name
     `,
     [
-      env.DEMO_TENANT_SLUG,
-      env.DEMO_TENANT_NAME,
-      env.DEMO_TENANT_NAME,
+      slug,
+      name,
+      name,
       "Trusted materials for every build",
       JSON.stringify({
         b1: "#0F172A",
@@ -25,12 +27,12 @@ async function seed() {
   const tenant = tenantResult.rows[0] || (
     await pool.query(
       "SELECT id, slug, name FROM tenants WHERE slug = $1",
-      [env.DEMO_TENANT_SLUG]
+      [slug]
     )
   ).rows[0];
 
   const settings = [
-    ["brand_name", env.DEMO_TENANT_NAME],
+    ["brand_name", name],
     ["tagline", "Trusted materials for every build"],
     ["colors", { b1: "#0F172A", b2: "#1D4ED8", soft: "#F8FAFC" }],
     ["points_per_scan", 10],
@@ -69,21 +71,29 @@ async function seed() {
 
   for (const [type, name, description, imageUrl, pointsCost, stock, active] of rewards) {
     await pool.query(
+      // rewards has no unique key to conflict on, so skip by name instead.
       `
         INSERT INTO rewards (tenant_id, type, name, description, image_url, points_cost, stock, active, is_catalog_ready)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
-        ON CONFLICT DO NOTHING
+        SELECT $1::uuid, $2::text, $3::text, $4::text, $5::text, $6::int, $7::int, $8::boolean, true
+        WHERE NOT EXISTS (SELECT 1 FROM rewards WHERE tenant_id = $1 AND name = $3)
       `,
       [tenant.id, type, name, description, imageUrl, pointsCost, stock, active]
     );
   }
 
-  console.log(`Seeded demo tenant: ${tenant.slug}`);
+  return tenant;
 }
 
-seed()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error("Seed failed:", error);
-    process.exit(1);
-  });
+module.exports = { seed };
+
+if (require.main === module) {
+  seed()
+    .then((tenant) => {
+      console.log(`Seeded demo tenant: ${tenant.slug}`);
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error("Seed failed:", error);
+      process.exit(1);
+    });
+}

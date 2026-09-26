@@ -1,6 +1,5 @@
 const { test, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
-const crypto = require('crypto');
 
 const app = require('../src/app');
 const { env } = require('../src/config/env');
@@ -8,32 +7,12 @@ const { pool, redis } = require('../src/db');
 const { normalizePhone } = require('../src/services/phone');
 const { otpKey, MAX_VERIFY_ATTEMPTS } = require('../src/services/otp');
 const { MOCK_OTP } = require('../src/services/msg91');
+const { createTestTenant, clearRedisFor, destroyTestTenant } = require('./helpers');
 
 let server;
 let baseUrl;
 let tenantA; // no MSG91 overrides in settings
 let tenantB; // overrides msg91_sender_id and msg91_template_id
-
-async function createTenant(label, settings = {}) {
-  const slug = `test-${label}-${crypto.randomBytes(4).toString('hex')}`;
-  const { rows } = await pool.query(
-    'INSERT INTO tenants (slug, name) VALUES ($1, $2) RETURNING id, slug',
-    [slug, `Test ${label}`]
-  );
-  for (const [key, value] of Object.entries(settings)) {
-    await pool.query(
-      'INSERT INTO settings (tenant_id, key, value) VALUES ($1, $2, $3::jsonb)',
-      [rows[0].id, key, JSON.stringify(value)]
-    );
-  }
-  return rows[0];
-}
-
-async function clearRedisFor(tenant) {
-  for await (const key of redis.scanIterator({ MATCH: `*:${tenant.id}:*` })) {
-    await redis.del(key);
-  }
-}
 
 function post(tenant, path, body, headers = {}) {
   return fetch(`${baseUrl}/t/${tenant.slug}${path}`, {
@@ -58,8 +37,8 @@ before(async () => {
   app.locals.db = pool;
   app.locals.redis = redis;
 
-  tenantA = await createTenant('a');
-  tenantB = await createTenant('b', {
+  tenantA = await createTestTenant(pool, 'a');
+  tenantB = await createTestTenant(pool, 'b', {
     msg91_sender_id: 'TENANTB',
     msg91_template_id: 'TPL_B'
   });
@@ -81,14 +60,13 @@ const MOCK_MSG91 = {
 
 beforeEach(async () => {
   app.locals.msg91 = MOCK_MSG91;
-  await clearRedisFor(tenantA);
-  await clearRedisFor(tenantB);
+  await clearRedisFor(redis, tenantA);
+  await clearRedisFor(redis, tenantB);
 });
 
 after(async () => {
-  await clearRedisFor(tenantA);
-  await clearRedisFor(tenantB);
-  await pool.query('DELETE FROM tenants WHERE id = ANY($1)', [[tenantA.id, tenantB.id]]);
+  await destroyTestTenant(pool, redis, tenantA);
+  await destroyTestTenant(pool, redis, tenantB);
   await new Promise((resolve) => server.close(resolve));
   await redis.quit();
   await pool.end();

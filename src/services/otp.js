@@ -72,9 +72,13 @@ async function sendOtp({ db, redis, msg91Config }, { tenant, phone, ip }) {
       expiryMinutes: OTP_EXPIRY_MINUTES
     });
   } catch (error) {
+    console.warn("MSG91 send error:", error.message);
     throw new OtpError(502, "otp_provider_unavailable");
   }
-  if (!result.ok) throw new OtpError(502, "otp_send_failed");
+  if (!result.ok) {
+    console.warn("MSG91 send failed:", JSON.stringify(result.body));
+    throw new OtpError(502, "otp_send_failed");
+  }
 
   const audit = await tenantQuery(
     db,

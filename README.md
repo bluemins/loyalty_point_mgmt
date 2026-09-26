@@ -23,23 +23,9 @@ Each client (tenant) gets their own branding, colors, logo, user categories, poi
 - **Hosting:** Railway (separate project from other apps)
 
 ## How OTP is working 
-Phone ──POST /t/demo/otp/send──▶ our server
-                                   │ 1. resolve tenant from slug "demo"
-                                   │ 2. normalise phone → +919876543210
-                                   │ 3. rate limits (Redis): 3/phone/15min, 10/IP/hour
-                                   │ 4. pick sender/template: tenant settings → else .env
-                                   │ 5. MSG91_AUTH_KEY empty? ──yes──▶ mock: skip SMS
-                                   │                          no──▶ POST control.msg91.com/api/v5/otp
-                                   │                                 (MSG91 generates the OTP and sends the SMS)
-                                   │ 6. Redis: otp:<tenant>:<phone> = {attempts:0}, expires in 5 min
-                                   │ 7. Postgres: audit row in otp_requests
-Phone ──POST /t/demo/otp/verify──▶ our server
-                                   │ 1. Redis key gone? → 410 expired
-                                   │ 2. attempts +1; over 5? → 429 locked
-                                   │ 3. mock: otp == "000000"?
-                                   │    real: GET control.msg91.com/api/v5/otp/verify
-                                   │ 4. wrong → 401 (attempts_left); right → create session
-                                   │ 5. session in Redis (30 days) + signed httpOnly cookie "sid"
+
+<img width="980" height="447" alt="image" src="https://github.com/user-attachments/assets/913b03d8-40e5-41aa-a2dc-3f1b29e170fe" />
+
 
 We never see the real OTP. MSG91 generates it, texts it, and checks it. We only enforce the 5-minute expiry and the 5-attempt limit ourselves, so the rules are the same in mock and real mode.
 Mode is chosen automatically. If MSG91_AUTH_KEY is empty you're in mock mode (OTP 000000, and responses include "mock": true). If it's set, real SMS go out.

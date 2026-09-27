@@ -36,7 +36,7 @@ As of 2026-09-27. Phases follow `ProjectExecutionPrompt.md`.
   - Screens: users with balances, point adjustments, ledger, redemptions (fulfil/cancel), validated settings, rewards.
   - Audit log written in the same transaction as each change. OTP/MSG91 settings are super-admin only.
 - **Command:** `npm run admin:create`.
-- **Docs:** [API.md](API.md), [USER_GUIDE.md](USER_GUIDE.md), [ADMIN_GUIDE.md](ADMIN_GUIDE.md), [ACCOUNTS.md](ACCOUNTS.md).
+- **Docs:** [API.md](API.md), [USER_GUIDE.md](USER_GUIDE.md), [ADMIN_GUIDE.md](ADMIN_GUIDE.md), [ACCOUNTS.md](ACCOUNTS.md), [TEST_CHECKLIST.md](TEST_CHECKLIST.md) (manual acceptance test), [DEMO_SCRIPT.md](DEMO_SCRIPT.md) (brand admin demo).
 
 ### Testing
 - **95 automated tests** (`npm test`) against real Postgres and Redis:

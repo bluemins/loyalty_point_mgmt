@@ -84,6 +84,7 @@ Decided:
 
 ## Admin panel (decided)
 - `/admin` (page) and `/admin/api` (JSON). Admins are created only with `npm run admin:create` (scrypt password hashes, lowercase emails). No UI for admins or tenants yet.
+- Brands are created with `npm run tenant:create` (`src/services/tenantSetup.js`): slug (2-40, lowercase, single hyphens), brand name and categories (validated with `SETTINGS_SCHEMA`), optionally the first tenant_admin, all in one transaction. Only `brand_name` and `user_categories` rows are written; everything else uses the defaults.
 - Admin identity is global, so `admin_users` lookups are the one place that queries without `tenant_id`; admin Redis keys live under `adm:` (not tenant-scoped).
 - Session: Redis, `ADMIN_SESSION_TTL_HOURS` (12), cookie `asid` signed, httpOnly, `SameSite=Strict`, path `/admin`. The admin row is re-read on every request. Non-GET requests must be JSON (with SameSite=Strict, blocks cross-site forms).
 - Lockout: `ADMIN_LOGIN_MAX_FAILURES` (5) per email per `ADMIN_LOGIN_WINDOW_MINUTES` (15), `ADMIN_LOGIN_MAX_FAILURES_PER_IP` (20) per hour. Same error for unknown email and wrong password.
@@ -114,11 +115,13 @@ Decided:
 
 Decided:
 - The mockup file was never provided; the UI follows this brief. First client palette (from their wood photos): walnut `#4A2412`, teak amber `#C8742B`, pine cream `#FBF3E6`, with a CSS-drawn wood grain on the hero (`hero_texture` = `wood` | `none`). No photos are shipped (licence unknown).
-- One page (`src/views/app.html`, `public/app.js`, `public/app.css`) with hash screens. `GET /t/:slug/scan` and `GET /t/:slug/` render it with the tenant's colours, brand, tagline and logo; `GET /t/:slug/config` is the public config.
+- One page (`src/views/app.html`, `public/app.js`, `public/app.css`) with hash screens. `GET /t/:slug/scan` and `GET /t/:slug/` render it with the tenant's brand, tagline and logo; `GET /t/:slug/config` is the public config.
+- Colours are served by `GET /t/:slug/theme.css` (`Cache-Control: no-cache` + ETag), not inlined, so the page has no inline styles or scripts (ready for a strict CSP; a test enforces it). After a scan the page replaces its URL with `/t/<slug>/`, so reloading does not scan again; only opening `/scan` does.
 - Tenant values are validated before reaching the page (hex colours only, known textures, http(s) or root-relative `logo_url`) and HTML-escaped. The client inserts data with `textContent` only.
 - Neutral text and shadow colours are derived from `--b1` via `color-mix`, so no theme looks tinted by another.
 - `demo-laminates` (teal) is seeded next to `demo` so two themes are always available.
-- `npm run test:e2e` (Playwright, dev-only) runs the full journey in two themes and writes screenshots to `screenshots/` (gitignored). In WSL, Chromium needs `sudo env "PATH=$PATH" npx playwright install-deps chromium` once.
+- `npm run test:e2e` (Playwright, dev-only) runs the full journey in two themes and writes screenshots to `screenshots/` (gitignored).
+- `npm run test:demo` (`tests/e2e/demo.e2e.js`) follows the brand admin presentation step by step; `HEADED=1` opens the browsers to watch it. Keep it in step with `docs/DEMO_SCRIPT.md` and the slide deck. In WSL, Chromium needs `sudo env "PATH=$PATH" npx playwright install-deps chromium` once.
 
 ## Testing
 - Automated tests for: daily cap, cooldown, FIFO redemption, expiry, double-spend prevention, tenant isolation (tenant A can never read tenant B).
@@ -128,7 +131,7 @@ Decided:
 - After any run, check the actual Postgres and Redis state, not only the API responses.
 
 ## Current state and docs
-- Phases 1–7 are done. Phase 8: review done, fixes and deployment not started (plan in chat awaiting approval). Details: `docs/STATUS.md`.
+- Phases 1–7 are done. Phase 8: review done; `tenant:create` and `theme.css` done; the other fixes and deployment not started. Details: `docs/STATUS.md`.
 - **Open security findings (fix before any production deploy):** mock OTP is active in production when `MSG91_AUTH_KEY` is empty (`000000` logs in anyone); no per-IP limit on new anonymous scan devices; no security headers; malformed JSON returns 500; `/health` returns 200 when degraded; Postgres SSL hard-coded. Full list in `docs/STATUS.md`.
 - Docs in `docs/`: `API.md` (every endpoint), `USER_GUIDE.md` (end users), `ADMIN_GUIDE.md` (admins, points maths, corner cases), `ACCOUNTS.md` (creating users, brands, admins), `STATUS.md`, `TEST_CHECKLIST.md` (manual acceptance test for the super admin), `DEMO_SCRIPT.md` (live demo for a brand admin, used with the slide deck "Loyalty Programme: Admin Walkthrough" on claude.ai). Screenshots in `docs/images/`.
 - When behaviour, an endpoint or a default changes, update the matching doc in the same commit.

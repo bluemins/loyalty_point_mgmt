@@ -1,6 +1,8 @@
 # Manual test checklist (super admin)
 
-A click-through acceptance test of the whole platform, run by the platform owner on a laptop before showing it to a brand. It takes about 45 minutes. The developer tests (`npm test`, `npm run test:e2e`) check the same rules automatically; this checklist is for seeing them with your own eyes.
+A click-through acceptance test of the whole platform, run by the platform owner on a laptop before showing it to a brand. It takes about 45 minutes. The automated tests check the same rules; this checklist is for seeing them with your own eyes.
+
+**Automated first (5 minutes).** In the project folder: `npm test` (107 tests) and `npm run test:e2e` (15 browser tests, including the whole presentation walkthrough). Both must end with `# fail 0`. To watch the presentation walkthrough play in real browsers: `HEADED=1 npm run test:demo`. Screenshots of every step land in `screenshots/demo/`. These tests use their own throwaway brands and never change the `demo` brand.
 
 Mark each step ✅ or ❌ in the **Result** column. For any ❌, write down what you saw and send it with the step number.
 
@@ -41,6 +43,10 @@ Run in a WSL terminal in the project folder.
 | 1.3 | `npm run admin:create`: email `brand@demo.test`, role `tenant_admin`, tenant `demo`, a password | `Created tenant_admin brand@demo.test` | |
 | 1.4 | Create a tenant admin with tenant `nope` | `No tenant with slug "nope"` | |
 | 1.5 | Create an admin with a 5-character password | `password must be at least 10 characters` | |
+| 1.6 | `npm run tenant:create`: slug `acme-test`, name `Acme Test`, press Enter for the categories, admin email `acme@demo.test`, a password twice | `Created brand acme-test (Acme Test)`, the QR code URL `/t/acme-test/scan`, the default categories, `Created tenant_admin acme@demo.test` | |
+| 1.7 | Run the same command again with slug `acme-test` | `A brand with slug "acme-test" already exists.` | |
+| 1.8 | `npm run tenant:create`: slug `Acme Test` (capitals and a space) | `slug must be 2-40 lowercase letters…`; nothing created | |
+| 1.9 | Open http://localhost:3000/t/acme-test/scan | The new brand's page in neutral grey, **Acme Test**, no rewards yet | |
 
 ## 2. Super admin panel
 
@@ -53,6 +59,8 @@ Run in a WSL terminal in the project folder.
 | 2.5 | Open the customer app in another tab | The header shows **Demo Plywood** in the wood theme | |
 | 2.6 | **Settings**: set **Daily scan cap** to `0`, save | Refused with a validation message (the cap must be at least 1) | |
 | 2.7 | **Rewards** | Starter Voucher (100), Trade Pack (250), Loyalty Bonus (500), all active, with stock | |
+| 2.8 | Brand selector | Also lists **Acme Test** (from step 1.6) | |
+| 2.9 | Open http://localhost:3000/t/demo/theme.css | `:root { --b1: #4A2412; --b2: #C8742B; --soft: #FBF3E6; }` | |
 
 ## 3. Customer journey: Customer A
 
@@ -61,7 +69,7 @@ Use a **private/incognito window** for each customer, so they do not share cooki
 | # | Do | Expect | Result |
 |---|---|---|---|
 | 3.1 | Open the app URL | Scan result: **+10 points pending**, button **Verify phone to claim**, rewards below | |
-| 3.2 | Reload the page at once | **Scanned recently** message with the time left; still 10 pending, not 20 | |
+| 3.2 | Open the app URL (`…/scan`) again at once. (After a scan the address bar shows `/t/demo/`; reloading that does not scan.) | **Scanned recently** message with the time left; still 10 pending, not 20 | |
 | 3.3 | Tap **Verify phone to claim**, enter `9999900001`, **Send code** | Code screen; **Resend code** counts down from 30 s | |
 | 3.4 | Enter `123456` | Wrong code, shows the tries left (4) | |
 | 3.5 | Enter `000000` | Profile screen, with a note that 10 pending points will be added | |
@@ -101,7 +109,7 @@ Use a **private/incognito window** for each customer, so they do not share cooki
 | 6.5 | Admin **Rewards** | Starter Voucher stock is 1 lower | |
 | 6.6 | **Fulfil** the voucher | It leaves the Issued list; under **Fulfilled** it has no Fulfil/Cancel buttons | |
 | 6.7 | Admin: give Customer A `+100` (reason `Cancel test`), then Customer A redeems Starter Voucher again | Balance 50 after redeeming; a new Issued voucher | |
-| 6.8 | Admin: **Cancel** this voucher with **no reason** | Refused: a reason is required | |
+| 6.8 | Admin: **Cancel** this voucher with **no reason** | The dialog does not submit: the Reason field is required | |
 | 6.9 | **Cancel** it, reason `Out of stock at store` | Status Cancelled; Customer A's balance back to **150**; ledger has `refund` +100 expiring 60 days from **today**; stock back up by 1 | |
 | 6.10 | Customer A: **My vouchers** | One Fulfilled, one Cancelled | |
 | 6.11 | Admin **Ledger**, filter by type `redeem` | Only redeem lines; click one to open the user | |
@@ -152,6 +160,7 @@ redis-cli -u "$(grep ^REDIS_URL .env | cut -d= -f2-)" del adm:rl:email:brand@dem
 ## 11. Tidy up
 
 - In **Settings**, check that the cooldown is back to 10 and the tagline is what you want to show.
+- To hide the test brand: `psql "$(grep ^DATABASE_URL .env | cut -d= -f2-)" -c "UPDATE tenants SET active = false WHERE slug = 'acme-test'"`.
 - The test customers and admins can stay for the demo. To start the demo from a clean balance, use a new phone number (for example `9999900003`).
 - Real SMS is **not** part of this test. It needs the DLT setup in MSG91 first ([STATUS.md](STATUS.md)).
 
@@ -160,7 +169,7 @@ redis-cli -u "$(grep ^REDIS_URL .env | cut -d= -f2-)" del adm:rl:email:brand@dem
 | Section | Pass | Fail | Notes |
 |---|---|---|---|
 | 0 Setup | | | |
-| 1 Admin accounts | | | |
+| 1 Admin accounts and brands | | | |
 | 2 Super admin panel | | | |
 | 3 Customer journey | | | |
 | 4 Scan limits | | | |

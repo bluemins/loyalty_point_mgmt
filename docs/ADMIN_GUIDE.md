@@ -12,7 +12,7 @@ Open the panel at **`https://<your-domain>/admin`**. It works on a computer and 
 | Users, redemptions, ledger, rewards | Yes, own brand | Yes, any brand |
 | Branding, scan rules, points and voucher settings | Yes | Yes |
 | OTP limits and MSG91 sender/template IDs | Read only | Yes (these control SMS spending on the platform's MSG91 account) |
-| Create brands or admin accounts | No | Not in the panel yet; see [ACCOUNTS.md](ACCOUNTS.md) |
+| Create brands or admin accounts | No | With the commands `npm run tenant:create` and `npm run admin:create`, not in the panel; see [ACCOUNTS.md](ACCOUNTS.md) |
 
 A tenant admin cannot see or reach any other brand: another brand's pages and data simply do not exist for them.
 

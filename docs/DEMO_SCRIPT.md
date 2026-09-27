@@ -6,6 +6,57 @@ The demo runs on your laptop in test mode: no SMS is sent and the code is always
 
 ---
 
+## Commands, in order
+
+Run in a WSL terminal, in the project folder. `.env` must have `MSG91_AUTH_KEY=` empty (test mode).
+
+**Once, the day before**
+```bash
+. ~/.nvm/nvm.sh                 # load Node 22
+npm install                     # only after pulling new code
+npm run migrate                 # database up to date (safe to repeat)
+npm run seed                    # demo brands and rewards (safe to repeat)
+npm test                        # 107 tests: must end with "# fail 0"
+npm run test:e2e                # 15 browser tests, including this demo: "# fail 0"
+npm run admin:create            # your super admin (skip if it exists)
+npm run admin:create -- --email brand@demo.test --role tenant_admin --tenant demo
+                                # the brand admin you present with (skip if it exists)
+```
+Then sign in at http://localhost:3000/admin as super admin, choose **demo**, and in **Settings** set **Brand name** = `Demo Plywood`, **Cooldown (minutes)** = `10`, **Daily scan cap** = `5`.
+
+**Optional: rehearse by watching the automated run** (opens two browsers and plays the whole demo, about 1 minute):
+```bash
+HEADED=1 npm run test:demo      # screenshots of each step in screenshots/demo/
+```
+The windows appear on the Windows desktop (WSLg, Windows 11). It uses its own throwaway brand, so it does not touch the `demo` brand you present with.
+
+**On the day**
+```bash
+. ~/.nvm/nvm.sh
+npm run dev                     # keep this terminal open during the demo
+```
+In a second terminal, check the server:
+```bash
+curl -s http://localhost:3000/health            # {"status":"ok","database":true,"redis":true,...}
+curl -s http://localhost:3000/t/demo/theme.css  # the wood colours
+```
+
+**Optional, during the demo: onboard a new brand live** (shows how a new client is set up in one command):
+```bash
+npm run tenant:create
+# slug: acme-plywood   name: Acme Plywood   categories: Enter   admin email: shop@acme.test   password twice
+```
+Then open http://localhost:3000/t/acme-plywood/scan: a new, empty brand. Switch to it in the super admin panel to set its colours and rewards.
+
+**After the demo**
+```bash
+# Ctrl+C in the npm run dev terminal stops the server.
+# Hide the brand made live (data is kept):
+psql "$(grep ^DATABASE_URL .env | cut -d= -f2-)" -c "UPDATE tenants SET active = false WHERE slug = 'acme-plywood'"
+```
+
+---
+
 ## Before the meeting (the day before)
 
 1. Run [TEST_CHECKLIST.md](TEST_CHECKLIST.md) once. It also creates the accounts used here:
@@ -47,7 +98,7 @@ Each step says what to do and a line to say.
 
 1. Open http://localhost:3000/t/demo/scan (or scan the QR with the phone).
    - *"This is what opens when a carpenter scans the QR on your sheet. No app, no login. They already have 10 points, but pending."*
-2. Reload the page.
+2. Open the scan URL again (after a scan the address bar shows `/t/demo/`, and reloading that does not scan; on the phone, scan the QR again).
    - *"Scanning again straight away earns nothing: there is a 10-minute wait. That's what stops someone scanning the same code 50 times."*
 3. Tap **Verify phone to claim**, enter the demo number, then **Send code**. Enter `000000`.
    - *"In real use this is an SMS code. Today it's the test code."*
@@ -101,6 +152,7 @@ Each step says what to do and a line to say.
 | The page does not load | Is `npm run dev` still running? Check http://localhost:3000/health. |
 | "Too many codes" when sending the code | The send limit per network is 10 an hour. Use your super admin login: in **Settings**, raise **Sends per IP**, and set it back afterwards. |
 | The first scan says "Scanned recently" | That window already scanned in the last 10 minutes. Open a new private window. |
+| The second scan shows "+10 pending" again instead of "Scanned recently" | More than 10 minutes passed, or the cooldown is set to 0 in Settings. |
 | No profile screen after the code | That number was used before. Use a fresh number. |
 | Locked out of the admin panel | Unlock command in [TEST_CHECKLIST.md](TEST_CHECKLIST.md) step 7.7. |
 | A question you can't answer | [ADMIN_GUIDE.md](ADMIN_GUIDE.md), sections "Corner cases" and "Where are my points?". |

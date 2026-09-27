@@ -12,7 +12,9 @@
     "expire": "node src/jobs/expirePoints.js",
     "test": "node --test",
     "test:e2e": "node --test --test-concurrency=1 tests/e2e/*.e2e.js",
-    "admin:create": "node src/cli/createAdmin.js"
+    "test:demo": "node --test tests/e2e/demo.e2e.js",
+    "admin:create": "node src/cli/createAdmin.js",
+    "tenant:create": "node src/cli/createTenant.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

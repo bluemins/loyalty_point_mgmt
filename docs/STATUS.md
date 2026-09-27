@@ -11,7 +11,7 @@ As of 2026-09-27. Phases follow `ProjectExecutionPrompt.md`.
 | 5 | Rewards, atomic redemption, vouchers, cancel/fulfil | ✅ Done |
 | 6 | User app screens, per-tenant theming | ✅ Done |
 | 7 | Admin panel, roles, tenant isolation, audit log | ✅ Done |
-| 8 | Security review, logging, README, Railway deployment | 🟡 Review done; fixes and deployment **not started** (plan awaiting approval) |
+| 8 | Security review, logging, README, Railway deployment | 🟡 Review done; `tenant:create` and `theme.css` done; other fixes and deployment **not started** |
 
 ## Done
 
@@ -30,16 +30,16 @@ As of 2026-09-27. Phases follow `ProjectExecutionPrompt.md`.
 - **Rewards.**
   - Public catalog; redemption in one transaction with an idempotency key, oldest credits first, and stock control.
   - Voucher codes; fulfil/cancel (refund as a fresh credit); vouchers expire after 30 days with no refund.
-- **User app.** 6 screens with animated points ring; theme from tenant settings (validated and escaped); wood texture option; two seeded demo themes.
+- **User app.** 6 screens with animated points ring; theme from tenant settings (validated and escaped) served as `/t/:slug/theme.css`, so the page has no inline styles or scripts; wood texture option; two seeded demo themes.
 - **Admin panel.**
   - Login with scrypt and lockout; `tenant_admin` / `super_admin`.
   - Screens: users with balances, point adjustments, ledger, redemptions (fulfil/cancel), validated settings, rewards.
   - Audit log written in the same transaction as each change. OTP/MSG91 settings are super-admin only.
-- **Command:** `npm run admin:create`.
+- **Commands:** `npm run admin:create`; `npm run tenant:create` (a brand with its categories, optionally with its brand admin, in one transaction).
 - **Docs:** [API.md](API.md), [USER_GUIDE.md](USER_GUIDE.md), [ADMIN_GUIDE.md](ADMIN_GUIDE.md), [ACCOUNTS.md](ACCOUNTS.md), [TEST_CHECKLIST.md](TEST_CHECKLIST.md) (manual acceptance test), [DEMO_SCRIPT.md](DEMO_SCRIPT.md) (brand admin demo).
 
 ### Testing
-- **95 automated tests** (`npm test`) against real Postgres and Redis:
+- **107 automated tests** (`npm test`) against real Postgres and Redis:
   - OTP: limits, attempts, expiry, mock and real paths
   - sessions: tamper, cross-tenant, logout
   - scanning: cooldown, cap, IST midnight, merge rules
@@ -48,8 +48,9 @@ As of 2026-09-27. Phases follow `ProjectExecutionPrompt.md`.
   - pages: theming and escaping
   - admin: auth, lockout, settings validation, adjustments, audit rows
   - **tenant isolation for every admin route** (a guard test fails if a new route is not covered)
+  - brand creation: validation, rollback when the admin fails, CLI run twice
   - seed run twice; test cleanup verified
-- **4 browser tests** (`npm run test:e2e`, Playwright Chromium): the full user journey in two themes, and the admin journey (tenant admin + super admin), with screenshots.
+- **15 browser tests** (`npm run test:e2e`, Playwright Chromium): the full user journey in two themes, the admin journey (tenant admin + super admin), and the brand admin presentation step by step (`npm run test:demo`, 11 steps: scan, cooldown, daily limit, adjustments, fulfil, cancel and refund, ledger, branding, brand isolation, lockout), with screenshots.
 - Key guards were **mutation-checked**: each was deliberately broken to confirm a test fails.
 
 ## Pending: implementation
@@ -60,7 +61,7 @@ As of 2026-09-27. Phases follow `ProjectExecutionPrompt.md`.
 |---|---|---|
 | 1 | With `NODE_ENV=production` and no `MSG91_AUTH_KEY`, mock mode is active: **`000000` logs in to any phone number** | 🔴 Critical |
 | 2 | No per-IP limit on new anonymous devices: a script can create unlimited pending scans | 🟠 High |
-| 3 | No security headers (CSP, frame protection, HSTS); `X-Powered-By` exposed | 🟠 High |
+| 3 | No security headers (CSP, frame protection, HSTS); `X-Powered-By` exposed. The user page no longer has inline styles or scripts, so a strict CSP is now possible. | 🟠 High |
 | 4 | Malformed JSON returns 500 (should be 400) and logs a stack trace | 🟡 Medium |
 | 5 | Unknown routes return Express's HTML page, also for API calls | 🟡 Low |
 | 6 | No structured request logs, request ids or graceful shutdown on redeploy | 🟡 Medium |
@@ -71,7 +72,6 @@ As of 2026-09-27. Phases follow `ProjectExecutionPrompt.md`.
 ### Rest of Phase 8
 - README with setup steps and an environment variable table.
 - Railway: web service config (migrate before deploy, health check), cron service for `npm run expire` at 00:30 IST (`0 19 * * *` UTC), Node version pin.
-- `npm run tenant:create` (proposed; today brands are created with SQL).
 
 ### Smaller gaps
 - **Admin accounts:** no password reset, deactivate or "manage admins" screen (manual steps in [ACCOUNTS.md](ACCOUNTS.md)).
@@ -90,7 +90,7 @@ As of 2026-09-27. Phases follow `ProjectExecutionPrompt.md`.
 |---|---|
 | **Real MSG91 SMS** | MSG91 accepts our requests, but no SMS has been delivered: DLT Entity ID and Template ID not yet linked for the sender. Needs one real send + verify once DLT is done. |
 | **Railway deployment** | Not deployed yet. |
-| **Screens not covered by browser tests** | Checked by screenshots only, not by automated tests: log out, resend code, error messages (network failure, OTP rate limit), the copy-code fallback on plain http. The cooldown and daily-limit screens were captured for the docs, but no test asserts them. |
+| **Screens not covered by browser tests** | Checked by screenshots only, not by automated tests: log out, resend code, error messages (network failure, OTP rate limit), the copy-code fallback on plain http. |
 | **Browsers and devices** | Automated tests use Chromium only. Not yet checked on real Android/iOS phones, Safari or Firefox. |
 | **Load** | No load or performance testing. |
 | **Accessibility** | Basic labels and reduced-motion support; no formal audit. |

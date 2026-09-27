@@ -54,8 +54,15 @@ cd qr-loyalty-platform
 npm install
 cp .env.example .env   # fill in your values
 npm run migrate        # set up the database
-npm run seed           # create a demo tenant
+npm run seed           # create the demo brands (local only)
 npm run dev
+```
+
+Accounts (see `docs/ACCOUNTS.md`):
+
+```bash
+npm run admin:create   # super admin or brand admin
+npm run tenant:create  # a new brand, optionally with its brand admin
 ```
 
 ### Environment variables
@@ -79,10 +86,12 @@ Every table carries a `tenant_id`. A tenant is resolved from the QR URL, e.g. `/
 ## Testing
 
 ```bash
-npm test
+npm test               # API and service tests against real Postgres and Redis
+npm run test:e2e       # browser tests (Playwright Chromium)
+npm run test:demo      # the brand admin presentation, step by step; HEADED=1 to watch
 ```
 
-Covers: daily scan cap, scan cooldown, FIFO point expiry on redemption, double-spend prevention, and tenant data isolation.
+Covers: daily scan cap, scan cooldown, FIFO point expiry on redemption, double-spend prevention, and tenant data isolation. Manual checks: `docs/TEST_CHECKLIST.md`.
 
 ## Deployment
 

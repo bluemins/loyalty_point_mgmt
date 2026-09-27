@@ -48,6 +48,13 @@ The URL printed in the QR code. Returns the app page themed for the tenant. **It
 ### `GET /t/:slug/` (HTML)
 The same app for return visits (no scan).
 
+### `GET /t/:slug/theme.css`
+The tenant's colours as CSS variables, loaded by the app page (which has no inline styles). `Content-Type: text/css`, `Cache-Control: no-cache` with an ETag, so a colour saved in the admin panel shows on the next page load.
+```css
+:root { --b1: #4A2412; --b2: #C8742B; --soft: #FBF3E6; }
+```
+Colours that are not plain `#rrggbb` values fall back to neutral defaults (`#1F2937`, `#4B5563`, `#F9FAFB`).
+
 ### `GET /t/:slug/config`
 Public tenant configuration used by the app.
 ```json

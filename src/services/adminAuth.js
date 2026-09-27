@@ -26,6 +26,7 @@ function normaliseEmail(email) {
 
 async function createAdmin(db, { email, password, role, tenantId = null }) {
   if (!ROLES.includes(role)) throw new Error(`role must be one of ${ROLES.join(", ")}`);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normaliseEmail(email))) throw new Error("email must look like name@example.com");
   if (typeof password !== "string" || password.length < 10) throw new Error("password must be at least 10 characters");
   const { rows } = await db.query(
     `INSERT INTO admin_users (email, password_hash, role, tenant_id)

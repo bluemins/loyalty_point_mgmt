@@ -63,15 +63,52 @@ test('each tenant page carries its own theme colours, texture and brand', async 
 
   assert.equal(w.status, 200);
   assert.match(w.type, /text\/html/);
-  assert.ok(w.text.includes(':root { --b1: #4A2412; --b2: #C8742B; --soft: #FBF3E6; }'));
+  assert.ok(w.text.includes(`<link rel="stylesheet" href="/t/${wood.slug}/theme.css">`));
+  assert.ok(w.text.includes('<meta name="theme-color" content="#4A2412">'));
   assert.ok(w.text.includes('class="texture-wood"'));
   assert.ok(w.text.includes('<span class="brand-name">Walnut Ply</span>'));
   assert.ok(w.text.includes(`data-slug="${wood.slug}" data-mode="scan"`));
 
-  assert.ok(t.text.includes(':root { --b1: #0F3D3E; --b2: #1F8A70; --soft: #EEF7F4; }'));
+  assert.ok(t.text.includes(`<link rel="stylesheet" href="/t/${teal.slug}/theme.css">`));
   assert.ok(t.text.includes('class="texture-none"'));
   assert.ok(t.text.includes('<span class="brand-name">Teal Laminates</span>'));
   assert.ok(!t.text.includes('#4A2412'), 'no colours leak from the other tenant');
+});
+
+test('theme.css carries each tenant\'s own colours', async () => {
+  for (const [tenant, colors] of [[wood, WOOD], [teal, TEAL]]) {
+    const res = await page(tenant, '/theme.css', 'text/css');
+    assert.equal(res.status, 200);
+    assert.match(res.type, /^text\/css/);
+    assert.equal(res.text, `:root { --b1: ${colors.b1}; --b2: ${colors.b2}; --soft: ${colors.soft}; }\n`);
+  }
+});
+
+test('theme.css is revalidated, so a colour change shows on the next load', async () => {
+  const url = `${baseUrl}/t/${teal.slug}/theme.css`;
+  const first = await fetch(url);
+  assert.equal(first.headers.get('cache-control'), 'no-cache');
+  const etag = first.headers.get('etag');
+  assert.ok(etag);
+  // Like a browser revalidating; fetch() would otherwise add Cache-Control: no-cache.
+  const revalidate = { 'If-None-Match': etag, 'Cache-Control': 'max-age=0' };
+  assert.equal((await fetch(url, { headers: revalidate })).status, 304);
+
+  await setSettings(pool, teal, { colors: { b1: '#111111', b2: '#222222', soft: '#333333' } });
+  try {
+    const changed = await fetch(url, { headers: revalidate });
+    assert.equal(changed.status, 200);
+    assert.equal(await changed.text(), ':root { --b1: #111111; --b2: #222222; --soft: #333333; }\n');
+  } finally {
+    await setSettings(pool, teal, { colors: TEAL });
+  }
+});
+
+test('the page has no inline styles or scripts (ready for a strict CSP)', async () => {
+  const { text } = await page(wood);
+  assert.ok(!/<style/i.test(text), 'no <style> block');
+  assert.ok(!/\sstyle=/i.test(text), 'no style attributes');
+  assert.ok(!/<script(?![^>]*\ssrc=)[^>]*>/i.test(text), 'no inline <script>');
 });
 
 test('no brand colour is hard-coded in the stylesheet', async () => {
@@ -111,7 +148,9 @@ test('brand text is HTML-escaped and unsafe theme values fall back', async () =>
     assert.ok(!text.includes('<script>alert'), 'script tag escaped');
     assert.ok(!text.includes('<img src=x'), 'img tag escaped');
     assert.ok(text.includes('&lt;script&gt;alert(1)&lt;/script&gt;&quot;Evil&quot;'));
-    assert.ok(text.includes(':root { --b1: #1F2937; --b2: #4B5563; --soft: #F9FAFB; }'), 'default colours used');
+    const css = await page(t, '/theme.css', 'text/css');
+    assert.equal(css.text, ':root { --b1: #1F2937; --b2: #4B5563; --soft: #F9FAFB; }\n', 'default colours used');
+    assert.ok(!text.includes('red;'), 'unsafe colour not in the page');
     assert.ok(text.includes('class="texture-none"'));
     assert.ok(!text.includes('javascript:'), 'unsafe logo URL dropped');
     assert.ok(text.includes('<span class="logo initials">'));
@@ -151,6 +190,9 @@ test('an unknown tenant gets an HTML page in a browser and JSON from the API', a
   assert.equal(html.status, 404);
   assert.match(html.type, /text\/html/);
   assert.match(html.text, /scan the QR code again/);
+
+  const css = await page({ slug: 'no-such-tenant' }, '/theme.css', 'text/css');
+  assert.equal(css.status, 404);
 
   const json = await page({ slug: 'no-such-tenant' }, '/config', 'application/json');
   assert.equal(json.status, 404);

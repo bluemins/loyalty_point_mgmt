@@ -438,8 +438,8 @@ test('settings: validated, logged with before/after, and applied to the app', as
   const log = (await logRows(tenantA, 'settings.update')).at(-1);
   assert.deepEqual(log.details.points_per_scan, { from: 10, to: 15 });
 
-  const page = await (await fetch(`${baseUrl}/t/${tenantA.slug}/`)).text();
-  assert.ok(page.includes('--b1: #112233'), 'new colours on the user app');
+  const theme = await (await fetch(`${baseUrl}/t/${tenantA.slug}/theme.css`)).text();
+  assert.equal(theme, ':root { --b1: #112233; --b2: #445566; --soft: #FAFAFA; }\n', 'new colours on the user app');
 
   const unchanged = await client.put(path, { points_per_scan: 15 });
   assert.deepEqual(unchanged.body.changed, [], 'no-op writes nothing');

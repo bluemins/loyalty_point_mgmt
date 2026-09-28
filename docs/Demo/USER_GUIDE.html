@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>USER_GUIDE.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="user-guide-earning-and-redeeming-points">User guide: earning and redeeming points</h1>
+<p>For the people who scan the QR code: carpenters, contractors and other customers of a brand on the platform. It explains every screen and exactly how points are counted. The screenshots show the &quot;Demo Plywood&quot; brand; your brand's name, colours and rewards will differ.</p>
+<p>The numbers below (10 points per scan, 5 scans a day, and so on) are the default rules. Each brand can change them; the app always uses the brand's current rules.</p>
+<h2 id="in-short">In short</h2>
+<ol>
+<li><strong>Scan</strong> the QR code printed on the product or at the shop. It opens a web page. No app to install, no login needed.</li>
+<li>Each scan earns <strong>10 points</strong>.</li>
+<li><strong>Verify your phone</strong> once with an SMS code to keep your points.</li>
+<li><strong>Redeem</strong> points for rewards and get a <strong>voucher code</strong> to show at the store.</li>
+</ol>
+<hr>
+<h2 id="the-screens">The screens</h2>
+<h3 id="1-scan-result">1. Scan result</h3>
+<p>Scanning the QR opens the brand's page and records your scan straight away.</p>
+<p><img src="images/user-01-scan-pending.png" alt="Scan result, points pending"></p>
+<ul>
+<li><strong>Not verified yet</strong>: your points show as <strong>pending</strong>. They are saved on this phone for 30 days. Tap <strong>Verify phone to claim</strong> to keep them.</li>
+<li><strong>Already logged in</strong>: the points go straight into your account (<strong>+10 points added</strong>), and <strong>See my points</strong> takes you to your points.</li>
+<li>Below, <strong>Rewards you can earn</strong> shows the brand's rewards. Swipe sideways to see them all.</li>
+</ul>
+<p>Scanning again too soon, or too often in one day, is recorded but earns nothing:</p>
+<table>
+<thead>
+<tr>
+<th>You scanned recently</th>
+<th>Daily limit reached</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="images/user-10-scan-cooldown.png" alt="Cooldown"></td>
+<td><img src="images/user-11-scan-daily-limit.png" alt="Daily limit"></td>
+</tr>
+<tr>
+<td>Wait 10 minutes after a scan that earned points. The message says how long is left.</td>
+<td>Up to 5 scans a day earn points. The count starts again at midnight (India time).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2-verify-your-phone">2. Verify your phone</h3>
+<p><img src="images/user-02-phone.png" alt="Enter your phone number"></p>
+<ol>
+<li>Enter your 10-digit mobile number (the +91 is already there) and tap <strong>Send code</strong>.</li>
+<li>You receive a 6-digit code by SMS. Enter it; the app checks it as soon as all 6 digits are in.</li>
+</ol>
+<p><img src="images/user-03-code-wrong.png" alt="Wrong code"></p>
+<ul>
+<li>A wrong code shows how many tries are left. You get <strong>5 tries per code</strong>.</li>
+<li>A code works for <strong>5 minutes</strong>. After that, or after 5 wrong tries, tap <strong>Resend code</strong> (available 30 seconds after sending).</li>
+<li>You can request a code <strong>3 times in 15 minutes</strong>. After that, wait for the time shown.</li>
+<li>Wrong number? Tap <strong>Change</strong>.</li>
+</ul>
+<p>You only do this once per phone: the app remembers you for 30 days, or until you tap <strong>Log out</strong>.</p>
+<h3 id="3-create-your-profile-first-time-only">3. Create your profile (first time only)</h3>
+<p><img src="images/user-04-profile.png" alt="Profile"></p>
+<p>Enter your name and choose what describes you (for example Carpenter, Contractor, End User; the brand sets the list). The note at the top shows the pending points that will be added. Tap <strong>Continue</strong>.</p>
+<p>If your phone number is already registered with this brand, you skip this screen and go straight to your points; any pending points on this phone are added.</p>
+<h3 id="4-my-points">4. My points</h3>
+<p><img src="images/user-05-home.png" alt="Points home"></p>
+<ul>
+<li><strong>The ring</strong> shows your balance in the middle. It fills up toward the cheapest reward you cannot afford yet; the line under it says how many more points you need, or how many rewards you can redeem now.</li>
+<li><strong>Expiring soon</strong> (only shown when it applies): points that will expire in the next 7 days, by date. Redeem them before then.</li>
+<li><strong>Redeem rewards</strong> opens the rewards.</li>
+<li><strong>Activity</strong>: every change to your points, newest first:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>+ Scan reward</strong></td>
+<td>Points from a scan</td>
+</tr>
+<tr>
+<td><strong>− Redeemed</strong></td>
+<td>Points used for a reward</td>
+</tr>
+<tr>
+<td><strong>↺ Voucher refund</strong></td>
+<td>Points returned because the brand cancelled a voucher</td>
+</tr>
+<tr>
+<td><strong>± Adjustment</strong></td>
+<td>Points added or removed by the brand (for example as a goodwill gesture or to correct a mistake)</td>
+</tr>
+<tr>
+<td><strong>× Points expired</strong></td>
+<td>Points that reached their expiry date unused</td>
+</tr>
+</tbody>
+</table>
+<h3 id="5-rewards">5. Rewards</h3>
+<p><img src="images/user-06-rewards.png" alt="Rewards"></p>
+<ul>
+<li>Each card shows the reward, its cost in points and a <strong>Redeem</strong> button.</li>
+<li>If you do not have enough points, the button says how many more you need (for example <strong>Need 200 more</strong>).</li>
+<li><strong>Out of stock</strong> rewards cannot be redeemed until the brand restocks them.</li>
+</ul>
+<p>Tapping <strong>Redeem</strong> asks you to confirm and shows what you will have left:</p>
+<p><img src="images/user-07-confirm.png" alt="Confirm"></p>
+<p>Tapping <strong>Redeem</strong> twice, or a network problem, cannot charge you twice: the app sends one request per confirmation, and the server treats a repeat of it as the same redemption. If the connection drops, tap <strong>Try again</strong>.</p>
+<h3 id="6-your-voucher">6. Your voucher</h3>
+<p><img src="images/user-08-voucher.png" alt="Voucher"></p>
+<ul>
+<li>The <strong>voucher code</strong> (like <code>K7MQ-3XRD-9P</code>) is what you show at the store. The code never contains the easily confused characters 0/O or 1/I.</li>
+<li><strong>Copy code</strong> copies it to your phone.</li>
+<li><strong>Valid until</strong>: the voucher can be used for 30 days.</li>
+</ul>
+<h3 id="7-my-vouchers">7. My vouchers</h3>
+<p><img src="images/user-09-my-vouchers.png" alt="My vouchers"></p>
+<p>On the rewards screen, <strong>My vouchers</strong> lists every voucher you have received. Tap one to see its code again.</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Issued</strong></td>
+<td>Ready to use at the store</td>
+</tr>
+<tr>
+<td><strong>Fulfilled</strong></td>
+<td>Used; the store has given you the reward</td>
+</tr>
+<tr>
+<td><strong>Cancelled</strong></td>
+<td>Cancelled by the brand; your points were returned</td>
+</tr>
+<tr>
+<td><strong>Expired</strong></td>
+<td>Not used within its validity; the points are <strong>not</strong> returned</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="how-points-work">How points work</h2>
+<h3 id="earning">Earning</h3>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Points per scan</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Time you must wait after a scan that earned points</td>
+<td>10 minutes</td>
+</tr>
+<tr>
+<td>Scans that earn points per day</td>
+<td>5 (a day runs midnight to midnight, India time)</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>A scan that is too soon or over the daily limit is still recorded, but earns nothing and <strong>does not restart</strong> the 10-minute wait.</li>
+<li>The <strong>daily limit</strong> applies to <strong>you</strong> across all your phones: pending scans from another phone are checked against what you already earned that day when they are added.</li>
+<li>The <strong>10-minute wait</strong> applies per phone, and logging in on the same phone does not reset it.</li>
+</ul>
+<h3 id="pending-points-before-you-verify">Pending points (before you verify)</h3>
+<ul>
+<li>Scans before you verify your phone are held as <strong>pending</strong> on that phone for <strong>30 days</strong>.</li>
+<li>They are added to your account when you verify (or create your profile) <strong>on the same phone</strong>.</li>
+<li>When they are added, the daily limit still applies to the day each scan happened. For example, if you already earned 5 scans on Monday on another phone, pending Monday scans from this phone cannot add more for Monday.</li>
+<li>Pending points not claimed within 30 days are lost.</li>
+</ul>
+<h3 id="expiry">Expiry</h3>
+<ul>
+<li><strong>Every batch of points expires 60 days after it was added to your account.</strong> Pending points count from the moment they are added (when you verify), not from the scan.</li>
+<li>Your balance only counts points that have not expired.</li>
+<li>The <strong>Expiring soon</strong> card warns you 7 days ahead.</li>
+</ul>
+<h3 id="redeeming">Redeeming</h3>
+<ul>
+<li>A reward costs a fixed number of points.</li>
+<li>Your <strong>oldest points are used first</strong>, which also uses up points closest to expiry first.</li>
+<li>A voucher is valid for <strong>30 days</strong>. After that it expires and the points are not returned.</li>
+<li>If the brand cancels your voucher (for example, the reward is out of stock at the store), the points come back as a new batch valid for another 60 days.</li>
+</ul>
+<h3 id="worked-example">Worked example</h3>
+<table>
+<thead>
+<tr>
+<th>Date</th>
+<th>What happens</th>
+<th>Balance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 March, 10:00</td>
+<td>Scan without logging in: <strong>+10 pending</strong></td>
+<td>0 (10 pending)</td>
+</tr>
+<tr>
+<td>1 March, 10:04</td>
+<td>Scan again: too soon, nothing earned</td>
+<td>0 (10 pending)</td>
+</tr>
+<tr>
+<td>1 March, 10:20</td>
+<td>Verify phone, create profile: the pending 10 are added, expiring 30 April</td>
+<td><strong>10</strong></td>
+</tr>
+<tr>
+<td>1 March, 10:31 … 13:00</td>
+<td>4 more scans, each more than 10 minutes apart: +40</td>
+<td><strong>50</strong></td>
+</tr>
+<tr>
+<td>1 March, 15:00</td>
+<td>6th scan of the day: daily limit, nothing earned</td>
+<td>50</td>
+</tr>
+<tr>
+<td>2 March … 20 March</td>
+<td>Regular scans earn 250 more</td>
+<td><strong>300</strong></td>
+</tr>
+<tr>
+<td>21 March</td>
+<td>Redeem <strong>Trade Pack</strong> (250): the oldest 250 points are used</td>
+<td><strong>50</strong></td>
+</tr>
+<tr>
+<td>30 April</td>
+<td>The last of the 1 March points expire, if still unspent</td>
+<td>fewer</td>
+</tr>
+</tbody>
+</table>
+<h2 id="common-questions">Common questions</h2>
+<p><strong>I scanned but my points are not there.</strong> Check the message on the scan screen: it may have been too soon (10 minutes) or over the daily limit. If you scanned before verifying, verify on the <strong>same phone</strong> to claim them.</p>
+<p><strong>I changed phones.</strong> Scan on the new phone and verify with the same number; your points and vouchers are linked to your phone number, not the device. Pending points on the old phone stay there until you verify on it.</p>
+<p><strong>I got a new phone number.</strong> A new number is a new account. Ask the brand to move your points (they can adjust points in their admin panel).</p>
+<p><strong>My points disappeared.</strong> Points expire 60 days after they were added. Look for <strong>× Points expired</strong> in your activity.</p>
+<p><strong>The code didn't arrive.</strong> Wait a minute, check the number, then tap <strong>Resend code</strong>. After 3 codes in 15 minutes you need to wait.</p>
+
+</body>
+</html>

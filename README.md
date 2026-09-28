@@ -22,6 +22,15 @@ Each client (tenant) gets their own branding, colors, logo, user categories, poi
 - **Frontend:** Mobile-first HTML, CSS, vanilla JS served by Express (no build step)
 - **Hosting:** Railway (separate project from other apps)
 
+## How OTP is working 
+
+<img width="980" height="447" alt="image" src="https://github.com/user-attachments/assets/913b03d8-40e5-41aa-a2dc-3f1b29e170fe" />
+
+
+We never see the real OTP. MSG91 generates it, texts it, and checks it. We only enforce the 5-minute expiry and the 5-attempt limit ourselves, so the rules are the same in mock and real mode.
+Mode is chosen automatically. If MSG91_AUTH_KEY is empty you're in mock mode (OTP 000000, and responses include "mock": true). If it's set, real SMS go out.
+The auth key stays on the server. It goes only in the authkey request header to MSG91 (src/services/msg91.js) and is never sent to the browser.
+
 ## Project structure
 
 ```
